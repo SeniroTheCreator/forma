@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { listNotificationsForUser } from "@/lib/db/notifications";
+import * as notificationService from "@/lib/services/notificationService";
 import { mapErrorToResponse } from "@/lib/errors/AppError";
 
 export async function GET() {
@@ -11,7 +11,7 @@ export async function GET() {
     } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-    const notifications = await listNotificationsForUser(supabase, user.id);
+    const notifications = await notificationService.listForUser(supabase, user.id);
     return NextResponse.json(notifications);
   } catch (err) {
     const { status, body } = mapErrorToResponse(err);

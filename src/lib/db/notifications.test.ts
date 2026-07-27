@@ -15,14 +15,29 @@ describe("db/notifications", () => {
     expect(result).toEqual([{ id: "n1" }]);
   });
 
-  it("markNotificationRead sets read_at", async () => {
-    const eq = vi.fn().mockResolvedValue({ error: null });
-    const update = vi.fn().mockReturnValue({ eq });
+  it("markNotificationRead sets read_at, scoped to both the id and the recipient", async () => {
+    const select = vi.fn().mockResolvedValue({ data: [{ id: "n1" }], error: null });
+    const recipientEq = vi.fn().mockReturnValue({ select });
+    const idEq = vi.fn().mockReturnValue({ eq: recipientEq });
+    const update = vi.fn().mockReturnValue({ eq: idEq });
     const supabase = { from: vi.fn().mockReturnValue({ update }) } as any;
 
-    await markNotificationRead(supabase, "n1");
+    const updated = await markNotificationRead(supabase, "n1", "u1");
 
     expect(update).toHaveBeenCalledWith(expect.objectContaining({ read_at: expect.any(String) }));
+    expect(idEq).toHaveBeenCalledWith("id", "n1");
+    expect(recipientEq).toHaveBeenCalledWith("recipient_id", "u1");
+    expect(updated).toBe(1);
+  });
+
+  it("markNotificationRead reports 0 rows when nothing matched", async () => {
+    const select = vi.fn().mockResolvedValue({ data: [], error: null });
+    const recipientEq = vi.fn().mockReturnValue({ select });
+    const idEq = vi.fn().mockReturnValue({ eq: recipientEq });
+    const update = vi.fn().mockReturnValue({ eq: idEq });
+    const supabase = { from: vi.fn().mockReturnValue({ update }) } as any;
+
+    await expect(markNotificationRead(supabase, "n1", "someone-else")).resolves.toBe(0);
   });
 
   it("insertNotification inserts a row", async () => {
