@@ -17,8 +17,10 @@
 --
 -- Inserting into auth.users fires the `on_auth_user_created` trigger
 -- (0001_core_schema.sql's handle_new_user), which creates the matching
--- public.users row and assigns the default 'user' role. The 'admin' role is
--- then additionally assigned below, since the trigger only grants 'user'.
+-- public.users row and assigns the default 'user' role. That default
+-- assignment is then REPLACED (not supplemented) with 'admin' below — see the
+-- comment at the bottom of this file for why the seeded admin must end up with
+-- exactly one role row.
 
 do $$
 declare
@@ -118,8 +120,18 @@ begin
   );
 
   -- The on_auth_user_created trigger has already created the public.users row
-  -- and assigned the default 'user' role. Additionally grant 'admin'.
+  -- and assigned the default 'user' role. REPLACE that assignment with 'admin'
+  -- rather than adding 'admin' on top of it.
+  --
+  -- This project's role model is single-active-role: adminService.changeUserRole
+  -- enforces it (it deletes every existing user_roles row for the target before
+  -- inserting the new one), and adminService.getUserById relies on it (its
+  -- user_roles lookup uses .single(), which errors on more than one row).
+  -- Leaving the seeded admin with both 'user' and 'admin' made the app's own
+  -- bootstrap account the one account whose admin detail page 500s.
   select id into admin_role_id from public.roles where name = 'admin';
+
+  delete from public.user_roles where user_id = admin_id;
 
   insert into public.user_roles (user_id, role_id)
   values (admin_id, admin_role_id)
