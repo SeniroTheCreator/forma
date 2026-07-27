@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import * as userService from "@/lib/services/userService";
 import { ProfileForm } from "@/components/features/dashboard/ProfileForm";
 import { ChangePasswordForm } from "@/components/features/auth/ChangePasswordForm";
+import { AvatarUpload } from "@/components/features/settings/AvatarUpload";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function SettingsPage() {
@@ -21,6 +22,15 @@ export default async function SettingsPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Settings</h1>
         <p className="text-sm text-muted-foreground">Manage your profile and account security.</p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Avatar</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AvatarUpload />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
