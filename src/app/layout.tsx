@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Foundation",
+  title: "Forma",
   description: "A reusable full-stack foundation — auth, RBAC, admin panel, and more, ready to build on.",
 };
 

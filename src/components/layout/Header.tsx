@@ -7,7 +7,7 @@ export function Header() {
     <header className="border-b border-zinc-200 bg-white">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="text-lg font-semibold tracking-tight text-zinc-900">
-          Foundation
+          Forma
         </Link>
 
         <nav className="hidden items-center gap-8 md:flex">

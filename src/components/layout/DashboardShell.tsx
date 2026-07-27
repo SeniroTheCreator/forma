@@ -31,7 +31,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-full">
       <aside className="flex w-64 shrink-0 flex-col border-r border-zinc-200 bg-white">
         <div className="flex h-16 items-center border-b border-zinc-200 px-6">
-          <span className="text-lg font-semibold tracking-tight text-zinc-900">Foundation</span>
+          <span className="text-lg font-semibold tracking-tight text-zinc-900">Forma</span>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3 py-4">
           {navLinks.map((link) => (

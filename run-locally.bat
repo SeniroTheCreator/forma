@@ -19,7 +19,7 @@ echo.
 echo ============================================
 echo   Starting the Next.js dev server...
 echo ============================================
-start "Website Dev Server - close this window to stop the app" cmd /k "cd /d "%~dp0" && pnpm dev"
+start "Forma Dev Server - close this window to stop the app" cmd /k "cd /d "%~dp0" && pnpm dev"
 
 echo.
 echo Waiting for http://localhost:3000 to respond...
@@ -51,7 +51,7 @@ echo ============================================
 echo The app is running at http://localhost:3000
 echo Supabase Studio (database viewer) is at http://localhost:54323
 echo.
-echo Close the "Website Dev Server" window to stop the app.
+echo Close the "Forma Dev Server" window to stop the app.
 echo Supabase/Docker keeps running in the background afterward -
 echo run "pnpm supabase stop" in a terminal here to stop that too.
 echo.

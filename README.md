@@ -1,4 +1,4 @@
-# Website — Full-Stack Foundation
+# Forma — Full-Stack Foundation
 
 A reusable, production-grade full-stack starting point: authentication, RBAC-based
 user management, an admin panel, file storage, and in-app notifications, built on
