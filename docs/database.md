@@ -42,17 +42,37 @@ account, `id` shared with `auth.users.id`.
 | `last_name` | `text` | not null |
 | `email` | `text` | not null |
 | `account_status` | `text` | not null, default `'active'`, check in (`'active'`, `'suspended'`) |
+| `avatar_url` | `text` | nullable (migration `0007`), public Storage URL of the user's current avatar |
 | `created_at` | `timestamptz` | not null, default `now()` |
 | `updated_at` | `timestamptz` | not null, default `now()` |
-| `last_login_at` | `timestamptz` | nullable, set by `loginAction` on successful login |
+| `last_login_at` | `timestamptz` | nullable, set by `loginAction` on successful login **via the service-role client** — see the column grant below |
 
-- Grants: `authenticated` → `select, update`; `service_role` → `select, insert, update, delete`.
+- Grants: `authenticated` → `select` on all columns, and **`update` on only
+  `first_name`, `last_name`, `avatar_url`, `account_status`** (migration
+  `0007`); `service_role` → `select, insert, update, delete`.
+  - `0001` originally granted `authenticated` a blanket table-level `update`,
+    which combined with the "update own row" RLS policy let any logged-in user
+    PATCH their own `email`, `created_at`, `updated_at` or `last_login_at`
+    through the Data API. Column-level privileges are the right tool: an
+    UPDATE whose payload touches a non-granted column is rejected with `42501`
+    before RLS is consulted at all.
+  - `account_status` is in the granted set on purpose:
+    `adminService.setAccountStatus` runs against the *caller's own* RLS-scoped
+    client by design, and the `protect_account_status` trigger below is what
+    stops a caller without `users:suspend` from actually changing it.
+  - `last_login_at` is deliberately excluded, so `loginAction` writes it with
+    the service-role client — a user cannot forge their own login history.
 - RLS: row owner (`id = auth.uid()`) can select/update own row; anyone with
   `users:read` can select any row; anyone with `users:write` can update any
   row.
 - **`protect_account_status` trigger** (`before update`, see below) additionally
   guards the `account_status` column specifically, independent of the general
   update policy.
+- `account_status` is enforced in two places in application code:
+  `loginAction` refuses to leave a suspended account with a live session, and
+  `src/proxy.ts` re-checks it on every protected/admin request so an account
+  suspended *mid-session* is signed out and redirected to
+  `/login?suspended=1`.
 
 ### `public.roles` (migration `0001`)
 
@@ -178,12 +198,25 @@ Immutable record of admin actions (role changes, account suspend/reactivate).
 - Like `notifications`, rows are only ever inserted via the service-role
   client (`insertAuditLog()`), never directly by a user's own session.
 
-### Storage: `avatars` bucket (migration `0003`)
+### Storage: `avatars` bucket (migrations `0003`, `0006`)
 
 Not a `public` schema table — a Supabase Storage bucket, created via `insert
 into storage.buckets (id, name, public) values ('avatars', 'avatars', true)`.
 Public (readable by anyone with the URL, matching typical avatar-serving
 needs).
+
+- Bucket constraints (migration `0006`): `file_size_limit = 5242880` (5MB,
+  matching `MAX_AVATAR_BYTES` in `src/lib/services/fileService.ts`) and
+  `allowed_mime_types = {image/png, image/jpeg, image/webp, image/gif}`.
+  Storage enforces both itself on every upload path, so they hold even for a
+  caller hitting the Storage API directly with a valid JWT (verified live: a
+  `text/plain` upload is rejected `415 invalid_mime_type`, a 6MB one `413`).
+  `fileService.uploadAvatar` checks the same size and MIME allowlist up front
+  so the user gets a clear `ValidationError` instead of an opaque Storage
+  error.
+- After a successful upload, `fileService.uploadAvatar` writes the object's
+  public URL to `public.users.avatar_url`; that is the read path the settings
+  page uses to render the current avatar back.
 
 - Policy `"avatar owner upload"` on `storage.objects`: `insert with check
   (bucket_id = 'avatars' and (storage.foldername(name))[1] =
@@ -265,6 +298,15 @@ inserts a real `auth.users`/`auth.identities` row for `admin@example.com` /
 `admin-password-1`, pre-confirmed, mirroring what GoTrue's own signup flow
 produces. Inserting into `auth.users` fires `handle_new_user`, which creates
 the matching `public.users` row and the default `user` role; the seed script
-then additionally assigns the `admin` role. This account is what
+then **deletes that default assignment and replaces it with** the `admin` role,
+so the account ends up with exactly one `user_roles` row.
+
+That single-role invariant matters: `adminService.changeUserRole` enforces it
+(it deletes every existing `user_roles` row for the target before inserting the
+new one) and `adminService.getUserById` relies on it (`.single()` on the
+`user_roles` lookup throws for more than one row). The seed originally added
+`admin` *on top of* the trigger's `user` role, which made the bootstrap admin
+the one account whose own `/admin/users/<id>` detail page failed. This account
+is what
 `tests/e2e/admin-journey.spec.ts` signs in as — re-run `pnpm supabase db
 reset` before `pnpm test:e2e` to guarantee it exists.

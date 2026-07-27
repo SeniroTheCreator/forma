@@ -85,24 +85,27 @@ src/
     db/                      # typed per-table repository functions
     services/                # authService, userService, fileService,
                               #   notificationService, adminService
-    validation/               # zod schemas (authSchemas, userSchemas)
+    validation/               # zod schemas (authSchemas, userSchemas, adminSchemas)
     permissions/               # hasPermission/requirePermission — RBAC gate
     errors/                     # AppError hierarchy + mapErrorToResponse
     logger/                      # pino instance + redaction config
     config/                       # env.ts (server) + publicEnv.ts (client) — see below
     rateLimit/                    # Upstash-backed limiter (fail-open)
     security/                     # CSP + other security headers (wired into next.config.ts)
+    testing/                      # mockSupabase() helper — test-only, never imported by app code
     utils.ts                      # cn() class-merge helper (shadcn convention)
   store/                    # Redux Toolkit store, uiSlice (toasts), RTK Query
                              #   API slices (adminApi, notificationsApi), StoreProvider
   proxy.ts                  # route protection — see divergence #1 below
 supabase/
-  migrations/               # schema as SQL, 0001–0005 (see docs/database.md)
+  migrations/               # schema as SQL, 0001–0007 (see docs/database.md)
   seed.sql                  # seeds a real auth.users admin account for e2e
 tests/
   integration/               # Vitest, against a real local Supabase instance
   e2e/                        # Playwright
   mocks/                      # next/headers stub for integration tests
+  setup/                      # Vitest globalSetup: boots/tears down `pnpm dev`
+                             #   for the integration project
 docs/
   architecture.md, database.md  # this file and its sibling
   superpowers/specs/            # original design spec
@@ -165,7 +168,11 @@ while building against the real Supabase/Next.js APIs:
    session for `/dashboard`, `/settings`, `/notifications`, and `/admin`
    (redirecting unauthenticated requests to `/login`), and additionally checks
    the `admin:access` permission via the `has_permission` RPC for `/admin`
-   (redirecting authenticated-but-unauthorized requests to `/dashboard`).
+   (redirecting authenticated-but-unauthorized requests to `/dashboard`). It
+   also re-reads the caller's `account_status` on every protected/admin request
+   and, if the account has been suspended, revokes the session and redirects to
+   `/login?suspended=1` — the login-time check in `loginAction` cannot cover an
+   account suspended while its session is already live.
 2. **Env config is split into two files**, not the single `lib/config` module
    the spec sketched:
    - `src/lib/config/publicEnv.ts` — no `server-only` import, validates only
@@ -239,6 +246,39 @@ while building against the real Supabase/Next.js APIs:
    Upstash instance is wired up — the deliberate tradeoff here is availability
    over strict rate-limit enforcement when the rate limiter's own
    infrastructure is unreachable.
+8. **Only `uiSlice` was built; there is no `authSlice` or
+   `notificationsSlice`** despite the spec's Redux design naming all three.
+   - `notificationsSlice` was subsumed by RTK Query: `notificationsApi`
+     (`src/store/api/notificationsApi.ts`) owns notification fetching, caching,
+     polling and cache invalidation on mark-read, which is everything a
+     hand-written slice would have done, with less code and no manual
+     normalisation. `adminApi` plays the same role for the admin panel.
+   - `authSlice` was dropped entirely: **there is no client-side auth or
+     session state anywhere in this app.** Every request re-derives identity
+     server-side from the Supabase session cookie —
+     `createServerSupabaseClient()` + `supabase.auth.getUser()` in Server
+     Components, Server Actions and Route Handlers, and `src/proxy.ts` for
+     route protection. This is idiomatic for the App Router (a client-side copy
+     of "who am I" is a cache that can go stale, and can never be the thing
+     that's trusted anyway), but it's a real departure from the spec's design
+     and worth stating explicitly: **do not add a client-side auth slice
+     without deciding what it is actually for** — it must not become the source
+     of truth for anything a server check depends on.
+   - What remains in Redux is genuinely client-only UI state: toasts and the
+     sidebar-collapsed flag (`src/store/slices/uiSlice.ts`).
+9. **The component library is 4 primitives, not ~14.** The spec's design
+   assumed a fuller shadcn/ui install; what actually ships in
+   `src/components/ui/` is `button`, `card`, `input` and `label`. There is no
+   Textarea, Select, Checkbox, Dialog, DropdownMenu, Avatar, shadcn Toast,
+   Spinner, ErrorState, EmptyState or DataTable. Consequences visible in the
+   code today: the admin users table is a hand-rolled `<table>`
+   (`UsersTable.tsx`), the role picker is a native `<select>`
+   (`UserDetailPanel.tsx`), the avatar is a plain `<img>` in a rounded div
+   (`AvatarUpload.tsx`), and toasts are a bespoke Redux-driven component
+   (`ToastViewport.tsx`) rather than the shadcn Toast primitive. Nothing is
+   blocked by this — but a feature that needs a modal or a rich select has to
+   add the primitive first, and should add it via the shadcn CLI rather than
+   growing another one-off.
 
 ## Migrations
 
@@ -251,5 +291,42 @@ There are 5 migrations, applied in order by `pnpm supabase db reset`:
 | 3 | `0003_avatars_bucket.sql` | `avatars` Storage bucket + owner-upload policy |
 | 4 | `0004_user_roles_write_access.sql` | INSERT/DELETE grant + RLS policies on `user_roles` for `authenticated` |
 | 5 | `0005_fix_account_status_permission.sql` | Fixes `protect_account_status()` to check `users:suspend` instead of `users:write` |
+| 6 | `0006_avatars_bucket_limits.sql` | `file_size_limit` (5MB) + `allowed_mime_types` on the `avatars` bucket |
+| 7 | `0007_users_avatar_url_and_column_grants.sql` | Adds `users.avatar_url`; replaces `authenticated`'s blanket UPDATE on `users` with a column-scoped grant |
 
 Full column/policy detail is in `docs/database.md`.
+
+## Known limitations / hardening backlog
+
+Deliberate, currently-accepted tradeoffs — recorded here so they read as
+decisions rather than oversights, and so anyone hardening this foundation knows
+where to start.
+
+- **CSP still allows `'unsafe-inline'` for `script-src` and `style-src`**
+  (`src/lib/security/headers.ts`). Next.js's App Router injects inline
+  bootstrap/hydration scripts and Tailwind ships inline styles; removing
+  `'unsafe-inline'` means a nonce-based CSP, which requires generating a
+  per-request nonce in `src/proxy.ts`, threading it through the response
+  headers, and having every inline script pick it up — non-trivial, easy to get
+  subtly wrong, and out of scope for this foundation. Everything cheap and
+  zero-risk around it *is* in place: `default-src 'self'`,
+  `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`,
+  `form-action 'self'`, plus `X-Frame-Options`, `nosniff`, `Referrer-Policy`,
+  `Permissions-Policy` and HSTS. Treat the nonce work as the next step, not as
+  a bug already filed.
+- **No automated RLS/RBAC denial regression tests.** RLS policies and grants
+  have been verified live and thoroughly (see the migration comments and
+  `.superpowers/sdd/.../progress.md`), but that verification is manual: nothing
+  in `pnpm test` fails if a future migration accidentally widens a policy. The
+  integration project can already create real users with real JWTs
+  (`tests/integration/proxy.test.ts` does), so the machinery exists — what's
+  missing is a suite that asserts the *denials*.
+- **Rate limiting fails open** — see divergence #7 above. In production with a
+  real Upstash instance this is a non-issue; with the placeholder credentials
+  this repo ships with, rate limiting effectively does nothing.
+- **Roles are single-active-role.** A user has exactly one `user_roles` row
+  (`changeUserRole` deletes all existing rows before inserting; `getUserById`'s
+  `.single()` depends on it). The schema is a many-to-many join table and could
+  support multiple roles per user, but the application layer does not — that
+  would need `getUserById`, `changeUserRole` and the role picker changed
+  together.

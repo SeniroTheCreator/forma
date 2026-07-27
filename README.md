@@ -107,9 +107,17 @@ pnpm test:e2e
 ```
 
 Playwright boots the Next.js dev server itself (see `playwright.config.ts`) and
-drives real browser flows — signup/login/dashboard and an admin role-change/
-suspend journey signed in as the seeded admin account — against local Supabase,
-so `pnpm supabase start` must be running first.
+drives real browser flows against local Supabase, so `pnpm supabase start` must
+be running first. The suite covers:
+
+- signup → login → dashboard, and redirect-to-login for protected/admin routes
+  while unauthenticated;
+- uploading an avatar on `/settings` and confirming it is still rendered after
+  a page reload;
+- signed in as the seeded admin: viewing and searching the users table;
+  changing another user's role and suspending them through the UI (both
+  asserted to survive a reload); and confirming an admin cannot demote or
+  suspend *their own* account.
 
 ## Project layout
 
