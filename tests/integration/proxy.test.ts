@@ -1,7 +1,7 @@
-// tests/integration/middleware.test.ts
+// tests/integration/proxy.test.ts
 import { describe, it, expect } from "vitest";
 
-describe("middleware route protection (integration, local Supabase + dev server)", () => {
+describe("proxy route protection (integration, local Supabase + dev server)", () => {
   it("redirects unauthenticated requests to /dashboard to /login", async () => {
     const res = await fetch("http://localhost:3000/dashboard", { redirect: "manual" });
     expect(res.status).toBe(307);
