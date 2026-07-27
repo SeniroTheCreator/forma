@@ -1,5 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { publicEnv } from "@/lib/config/env";
+import { publicEnv } from "@/lib/config/publicEnv";
 import type { Database } from "./database.types";
 
 export function createBrowserSupabaseClient() {

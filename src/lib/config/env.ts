@@ -1,18 +1,9 @@
 import "server-only";
 import { z } from "zod";
 
-// Public schema - safe to import in client code
-const publicEnvSchema = z.object({
-  NEXT_PUBLIC_SITE_URL: z.string().url(),
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-});
-
-export const publicEnv = publicEnvSchema.parse({
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-  NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-});
+// Re-export publicEnv for convenience in server code
+// (Client code must import directly from @/lib/config/publicEnv to avoid server-only guard)
+export { publicEnv } from "./publicEnv";
 
 // Full schema - includes server-only secrets, use in server code only
 const envSchema = z.object({
