@@ -3,6 +3,36 @@ import { requirePermission } from "@/lib/permissions";
 import { insertAuditLog } from "@/lib/db/auditLog";
 import { notifyUser } from "@/lib/services/notificationService";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { ForbiddenError } from "@/lib/errors/AppError";
+
+/**
+ * There is no bootstrap/re-promotion flow in this application: the only way an account
+ * gets the `admin` role is `supabase/seed.sql` or an existing admin granting it. So an
+ * admin who demotes or suspends themselves is unrecoverable without direct database
+ * access — and with a single admin account (the seeded default) that locks the whole
+ * admin panel permanently. Both mutating admin operations refuse to target the caller.
+ */
+function rejectSelfTargeting(callerId: string, targetId: string): void {
+  if (callerId === targetId) {
+    throw new ForbiddenError("You cannot modify your own account from the admin panel");
+  }
+}
+
+/**
+ * PostgREST's filter DSL treats `,` as the separator between the conditions inside
+ * `or=(...)`, and `(`/`)` as its grouping delimiters — so interpolating a raw search term
+ * into `.or(...)` lets the term restructure the filter it was supposed to be a value in.
+ * PostgREST's own escape hatch for values containing reserved characters is to wrap the
+ * value in double quotes, with `"` and `\` backslash-escaped inside; the term is then
+ * parsed as a single literal no matter what it contains.
+ *
+ * The route handler additionally rejects the structural characters up front via zod
+ * (`listUsersQuerySchema`), but this escaping is what makes the service itself safe for
+ * any caller rather than relying on validation happening somewhere upstream.
+ */
+function toPostgrestLiteral(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
 
 export async function listUsers(
   supabase: SupabaseClient,
@@ -16,7 +46,8 @@ export async function listUsers(
 
   let query = supabase.from("users").select("*", { count: "exact" }).range(from, to);
   if (options.search) {
-    query = query.or(`email.ilike.%${options.search}%,first_name.ilike.%${options.search}%,last_name.ilike.%${options.search}%`);
+    const term = toPostgrestLiteral(`%${options.search}%`);
+    query = query.or(`email.ilike.${term},first_name.ilike.${term},last_name.ilike.${term}`);
   }
 
   const { data, count, error } = await query;
@@ -55,6 +86,7 @@ export async function getUserById(supabase: SupabaseClient, callerId: string, ta
  */
 export async function changeUserRole(supabase: SupabaseClient, callerId: string, targetId: string, roleName: string): Promise<void> {
   await requirePermission(supabase, callerId, "users:write");
+  rejectSelfTargeting(callerId, targetId);
 
   const { data: role, error: roleError } = await supabase.from("roles").select("id").eq("name", roleName).single();
   if (roleError || !role) throw roleError ?? new Error("Unknown role");
@@ -101,6 +133,7 @@ export async function setAccountStatus(
   status: "active" | "suspended"
 ): Promise<void> {
   await requirePermission(supabase, callerId, "users:suspend");
+  rejectSelfTargeting(callerId, targetId);
 
   const { error } = await supabase.from("users").update({ account_status: status }).eq("id", targetId);
   if (error) throw error;

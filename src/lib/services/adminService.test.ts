@@ -10,6 +10,7 @@ import { requirePermission } from "@/lib/permissions";
 import { insertAuditLog } from "@/lib/db/auditLog";
 import { notifyUser } from "@/lib/services/notificationService";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { ForbiddenError } from "@/lib/errors/AppError";
 
 // A distinct object identity from the caller's client — every assertion below relies on
 // this NOT being reference-equal to the caller's `supabase` mock, so that a test would fail
@@ -49,6 +50,27 @@ describe("adminService.listUsers", () => {
 
     expect(range).toHaveBeenCalledWith(20, 39);
     expect(or).toHaveBeenCalledWith(expect.stringContaining("jane"));
+  });
+
+  it("escapes the search term as a quoted PostgREST literal so it cannot restructure the filter", async () => {
+    const or = vi.fn().mockResolvedValue({ data: [], count: 0, error: null });
+    const range = vi.fn().mockReturnValue({ or });
+    const select = vi.fn().mockReturnValue({ range });
+    const from = vi.fn().mockReturnValue({ select });
+    const supabase = { from } as any;
+
+    // `,` ends a condition and `)` closes the or() group in PostgREST's filter DSL —
+    // interpolated raw, this term would append an attacker-chosen condition.
+    await listUsers(supabase, "admin-1", { page: 1, search: 'x",account_status.eq.suspended)' });
+
+    const filter = or.mock.calls[0][0] as string;
+    // Every value is wrapped in double quotes, and the term's own quote/backslash chars
+    // are escaped, so no condition boundary can be forged from inside a value.
+    expect(filter).toBe(
+      'email.ilike."%x\\",account_status.eq.suspended)%",' +
+        'first_name.ilike."%x\\",account_status.eq.suspended)%",' +
+        'last_name.ilike."%x\\",account_status.eq.suspended)%"'
+    );
   });
 });
 
@@ -118,6 +140,17 @@ describe("adminService.changeUserRole", () => {
     expect(notifyUser).not.toHaveBeenCalledWith(supabase, expect.anything(), expect.anything());
   });
 
+  it("refuses to change the caller's own role (no bootstrap flow exists to undo a self-demotion)", async () => {
+    const from = vi.fn();
+    const supabase = { from } as any;
+
+    await expect(changeUserRole(supabase, "admin-1", "admin-1", "user")).rejects.toThrow(ForbiddenError);
+
+    expect(from).not.toHaveBeenCalled();
+    expect(insertAuditLog).not.toHaveBeenCalled();
+    expect(notifyUser).not.toHaveBeenCalled();
+  });
+
   it("throws if the role name is unknown and performs no mutation or logging", async () => {
     const rolesSingle = vi.fn().mockResolvedValue({ data: null, error: null });
     const rolesEq = vi.fn().mockReturnValue({ single: rolesSingle });
@@ -155,5 +188,16 @@ describe("adminService.setAccountStatus", () => {
 
     expect(insertAuditLog).not.toHaveBeenCalledWith(supabase, expect.anything());
     expect(notifyUser).not.toHaveBeenCalledWith(supabase, expect.anything(), expect.anything());
+  });
+
+  it("refuses to suspend the caller's own account (self-lockout has no recovery path)", async () => {
+    const from = vi.fn();
+    const supabase = { from } as any;
+
+    await expect(setAccountStatus(supabase, "admin-1", "admin-1", "suspended")).rejects.toThrow(ForbiddenError);
+
+    expect(from).not.toHaveBeenCalled();
+    expect(insertAuditLog).not.toHaveBeenCalled();
+    expect(notifyUser).not.toHaveBeenCalled();
   });
 });
