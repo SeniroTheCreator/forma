@@ -112,3 +112,46 @@ create policy "role_permissions readable by authenticated" on public.role_permis
 
 create policy "user_roles select own or with users:read" on public.user_roles
   for select using (user_id = auth.uid() or public.has_permission(auth.uid(), 'users:read'));
+
+-- Base table grants: RLS policies only restrict which rows a query can see/touch —
+-- without an explicit GRANT, PostgREST's anon/authenticated/service_role roles have
+-- no access to these tables at all, regardless of policy (and service_role's BYPASSRLS
+-- does not remove the need for the underlying GRANT).
+grant usage on schema public to anon, authenticated, service_role;
+
+grant select, update on public.users to authenticated;
+grant select, insert, update, delete on public.users to service_role;
+
+grant select on public.roles to authenticated;
+grant select, insert, update, delete on public.roles to service_role;
+
+grant select on public.permissions to authenticated;
+grant select, insert, update, delete on public.permissions to service_role;
+
+grant select on public.role_permissions to authenticated;
+grant select, insert, update, delete on public.role_permissions to service_role;
+
+grant select on public.user_roles to authenticated;
+grant select, insert, update, delete on public.user_roles to service_role;
+
+-- Prevent a user without users:write from reverting/changing their own account_status
+-- via a direct update to their own row. RLS's USING clause is reused as the check when
+-- an UPDATE policy has no WITH CHECK, but WITH CHECK cannot compare against the
+-- pre-update row within a single UPDATE statement — so this is enforced with a
+-- BEFORE UPDATE trigger instead, which silently reverts the column change.
+create function public.protect_account_status()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  if not public.has_permission(auth.uid(), 'users:write') and auth.role() <> 'service_role' then
+    new.account_status := old.account_status;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger protect_account_status_trigger
+  before update on public.users
+  for each row execute function public.protect_account_status();
