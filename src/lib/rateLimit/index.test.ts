@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/config/env", () => ({
@@ -7,13 +7,17 @@ vi.mock("@/lib/config/env", () => ({
     UPSTASH_REDIS_REST_TOKEN: "test-token",
   },
 }));
+
+// Global mock state for controlling behavior per test
+const mockState = { success: false };
+
 vi.mock("@upstash/ratelimit", () => {
   return {
     Ratelimit: class {
       static slidingWindow() {
         return {};
       }
-      limit = vi.fn().mockResolvedValue({ success: false });
+      limit = async () => ({ success: mockState.success });
     },
   };
 });
@@ -23,7 +27,16 @@ import { enforceRateLimit } from "./index";
 import { RateLimitError } from "@/lib/errors/AppError";
 
 describe("rateLimit", () => {
+  afterEach(() => {
+    mockState.success = false;
+  });
+
   it("throws RateLimitError when the limiter denies the request", async () => {
     await expect(enforceRateLimit("login:1.2.3.4")).rejects.toThrow(RateLimitError);
+  });
+
+  it("resolves without throwing when the limiter allows the request", async () => {
+    mockState.success = true;
+    await expect(enforceRateLimit("signup:1.2.3.4")).resolves.toBeUndefined();
   });
 });
