@@ -17,9 +17,10 @@ import {
   changePassword,
 } from "./authService";
 import { AuthError } from "@/lib/errors/AppError";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 function makeSupabaseMock() {
-  return {
+  return mockSupabase({
     auth: {
       signUp: vi.fn(),
       signInWithPassword: vi.fn(),
@@ -29,7 +30,7 @@ function makeSupabaseMock() {
       updateUser: vi.fn(),
       getUser: vi.fn(),
     },
-  } as any;
+  });
 }
 
 describe("authService.signup", () => {

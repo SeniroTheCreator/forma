@@ -1,11 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { hasPermission, requirePermission } from "./index";
 import { ForbiddenError } from "@/lib/errors/AppError";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 function makeSupabaseMock(result: boolean) {
-  return {
+  return mockSupabase({
     rpc: vi.fn().mockResolvedValue({ data: result, error: null }),
-  } as any;
+  });
 }
 
 describe("permissions", () => {

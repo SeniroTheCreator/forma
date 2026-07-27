@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { AppError, ValidationError, NotFoundError, mapErrorToResponse } from "./AppError";
+import { ValidationError, NotFoundError, mapErrorToResponse } from "./AppError";
 
 describe("AppError", () => {
   it("ValidationError has status 400", () => {

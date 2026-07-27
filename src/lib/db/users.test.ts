@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 import { getUserById, updateUser } from "./users";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
-function makeSupabaseMock(row: any) {
+function makeSupabaseMock(row: Record<string, unknown>) {
   const single = vi.fn().mockResolvedValue({ data: row, error: null });
   const eq = vi.fn().mockReturnValue({ single });
   const select = vi.fn().mockReturnValue({ eq });
   const updateEq = vi.fn().mockResolvedValue({ error: null });
   const update = vi.fn().mockReturnValue({ eq: updateEq });
-  return { from: vi.fn().mockReturnValue({ select, update }) } as any;
+  return mockSupabase({ from: vi.fn().mockReturnValue({ select, update }) });
 }
 
 describe("db/users", () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { insertFileRecord, deleteFileRecord } from "./files";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 function makeSupabaseMock() {
   const single = vi.fn().mockResolvedValue({ data: { id: "f1", path: "avatars/u1.png" }, error: null });
@@ -7,7 +8,7 @@ function makeSupabaseMock() {
   const insert = vi.fn().mockReturnValue({ select });
   const eq = vi.fn().mockResolvedValue({ error: null });
   const del = vi.fn().mockReturnValue({ eq });
-  return { from: vi.fn().mockReturnValue({ insert, delete: del }) } as any;
+  return mockSupabase({ from: vi.fn().mockReturnValue({ insert, delete: del }) });
 }
 
 describe("db/files", () => {

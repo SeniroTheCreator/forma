@@ -1,12 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { listNotificationsForUser, markNotificationRead, insertNotification } from "./notifications";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 describe("db/notifications", () => {
   it("listNotificationsForUser queries by recipient_id ordered by created_at desc", async () => {
     const order = vi.fn().mockResolvedValue({ data: [{ id: "n1" }], error: null });
     const eq = vi.fn().mockReturnValue({ order });
     const select = vi.fn().mockReturnValue({ eq });
-    const supabase = { from: vi.fn().mockReturnValue({ select }) } as any;
+    const supabase = mockSupabase({ from: vi.fn().mockReturnValue({ select }) });
 
     const result = await listNotificationsForUser(supabase, "u1");
 
@@ -20,7 +21,7 @@ describe("db/notifications", () => {
     const recipientEq = vi.fn().mockReturnValue({ select });
     const idEq = vi.fn().mockReturnValue({ eq: recipientEq });
     const update = vi.fn().mockReturnValue({ eq: idEq });
-    const supabase = { from: vi.fn().mockReturnValue({ update }) } as any;
+    const supabase = mockSupabase({ from: vi.fn().mockReturnValue({ update }) });
 
     const updated = await markNotificationRead(supabase, "n1", "u1");
 
@@ -35,14 +36,14 @@ describe("db/notifications", () => {
     const recipientEq = vi.fn().mockReturnValue({ select });
     const idEq = vi.fn().mockReturnValue({ eq: recipientEq });
     const update = vi.fn().mockReturnValue({ eq: idEq });
-    const supabase = { from: vi.fn().mockReturnValue({ update }) } as any;
+    const supabase = mockSupabase({ from: vi.fn().mockReturnValue({ update }) });
 
     await expect(markNotificationRead(supabase, "n1", "someone-else")).resolves.toBe(0);
   });
 
   it("insertNotification inserts a row", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
-    const supabase = { from: vi.fn().mockReturnValue({ insert }) } as any;
+    const supabase = mockSupabase({ from: vi.fn().mockReturnValue({ insert }) });
 
     await insertNotification(supabase, { recipient_id: "u1", type: "test", title: "Hi", message: "Hello" });
 

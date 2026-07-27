@@ -9,6 +9,7 @@ vi.mock("@/lib/db/notifications", () => ({
 import { notifyUser, listForUser, markRead } from "./notificationService";
 import { insertNotification, listNotificationsForUser, markNotificationRead } from "@/lib/db/notifications";
 import { NotFoundError } from "@/lib/errors/AppError";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -17,7 +18,7 @@ beforeEach(() => {
 
 describe("notificationService.notifyUser", () => {
   it("inserts a notification for the recipient", async () => {
-    await notifyUser({} as any, "u1", { type: "account", title: "Welcome", message: "Thanks for joining" });
+    await notifyUser(mockSupabase({}), "u1", { type: "account", title: "Welcome", message: "Thanks for joining" });
     expect(insertNotification).toHaveBeenCalledWith({}, {
       recipient_id: "u1",
       type: "account",
@@ -29,14 +30,14 @@ describe("notificationService.notifyUser", () => {
 
 describe("notificationService.listForUser", () => {
   it("lists the caller's own notifications", async () => {
-    await expect(listForUser({} as any, "u1")).resolves.toEqual([{ id: "n1" }]);
+    await expect(listForUser(mockSupabase({}), "u1")).resolves.toEqual([{ id: "n1" }]);
     expect(listNotificationsForUser).toHaveBeenCalledWith({}, "u1");
   });
 });
 
 describe("notificationService.markRead", () => {
   it("scopes the update to the caller, not just to the notification id", async () => {
-    await markRead({} as any, "u1", "n1");
+    await markRead(mockSupabase({}), "u1", "n1");
     expect(markNotificationRead).toHaveBeenCalledWith({}, "n1", "u1");
   });
 
@@ -45,6 +46,6 @@ describe("notificationService.markRead", () => {
     // caller would get {success: true} for a notification that was never theirs.
     vi.mocked(markNotificationRead).mockResolvedValue(0);
 
-    await expect(markRead({} as any, "u1", "someone-elses-notification")).rejects.toThrow(NotFoundError);
+    await expect(markRead(mockSupabase({}), "u1", "someone-elses-notification")).rejects.toThrow(NotFoundError);
   });
 });

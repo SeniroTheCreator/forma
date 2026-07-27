@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { insertAuditLog } from "./auditLog";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 describe("db/auditLog", () => {
   it("inserts an audit_log row", async () => {
     const insert = vi.fn().mockResolvedValue({ error: null });
-    const supabase = { from: vi.fn().mockReturnValue({ insert }) } as any;
+    const supabase = mockSupabase({ from: vi.fn().mockReturnValue({ insert }) });
 
     await insertAuditLog(supabase, {
       actor_id: "admin-1",
@@ -20,7 +21,7 @@ describe("db/auditLog", () => {
 
   it("throws when the insert fails", async () => {
     const insert = vi.fn().mockResolvedValue({ error: new Error("boom") });
-    const supabase = { from: vi.fn().mockReturnValue({ insert }) } as any;
+    const supabase = mockSupabase({ from: vi.fn().mockReturnValue({ insert }) });
 
     await expect(
       insertAuditLog(supabase, {

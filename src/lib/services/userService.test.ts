@@ -8,19 +8,20 @@ vi.mock("@/lib/db/users", () => ({
 import { getProfile, updateProfile } from "./userService";
 import { updateUser } from "@/lib/db/users";
 import { ForbiddenError } from "@/lib/errors/AppError";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 describe("userService", () => {
   it("getProfile returns the caller's own profile", async () => {
-    const result = await getProfile({} as any, "u1", "u1");
+    const result = await getProfile(mockSupabase({}), "u1", "u1");
     expect(result.id).toBe("u1");
   });
 
   it("updateProfile throws ForbiddenError when updating someone else's profile", async () => {
-    await expect(updateProfile({} as any, "u1", "u2", { firstName: "X", lastName: "Y" })).rejects.toThrow(ForbiddenError);
+    await expect(updateProfile(mockSupabase({}), "u1", "u2", { firstName: "X", lastName: "Y" })).rejects.toThrow(ForbiddenError);
   });
 
   it("updateProfile updates when the caller owns the profile", async () => {
-    await updateProfile({} as any, "u1", "u1", { firstName: "Grace", lastName: "Hopper" });
+    await updateProfile(mockSupabase({}), "u1", "u1", { firstName: "Grace", lastName: "Hopper" });
     expect(updateUser).toHaveBeenCalledWith({}, "u1", { first_name: "Grace", last_name: "Hopper" });
   });
 });

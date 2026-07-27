@@ -11,12 +11,13 @@ import { uploadAvatar } from "./fileService";
 import { insertFileRecord } from "@/lib/db/files";
 import { updateUser } from "@/lib/db/users";
 import { ValidationError } from "@/lib/errors/AppError";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 function makeSupabaseMock() {
   const upload = vi.fn().mockResolvedValue({ data: { path: "u1/123.png" }, error: null });
   const getPublicUrl = vi.fn().mockReturnValue({ data: { publicUrl: "http://storage.local/avatars/u1/123.png" } });
   return {
-    supabase: { storage: { from: vi.fn().mockReturnValue({ upload, getPublicUrl }) } } as any,
+    supabase: mockSupabase({ storage: { from: vi.fn().mockReturnValue({ upload, getPublicUrl }) } }),
     upload,
   };
 }

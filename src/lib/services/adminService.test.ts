@@ -11,12 +11,13 @@ import { insertAuditLog } from "@/lib/db/auditLog";
 import { notifyUser } from "@/lib/services/notificationService";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { ForbiddenError } from "@/lib/errors/AppError";
+import { mockSupabase } from "@/lib/testing/mockSupabase";
 
 // A distinct object identity from the caller's client — every assertion below relies on
 // this NOT being reference-equal to the caller's `supabase` mock, so that a test would fail
 // if the implementation ever passed the caller's own (RLS-scoped) client to insertAuditLog/
 // notifyUser instead of the service-role admin client.
-const adminSupabase = { __marker: "admin-client" } as any;
+const adminSupabase = mockSupabase({ __marker: "admin-client" });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -28,7 +29,7 @@ describe("adminService.listUsers", () => {
     const range = vi.fn().mockResolvedValue({ data: [{ id: "u1" }], count: 1, error: null });
     const select = vi.fn().mockReturnValue({ range });
     const from = vi.fn().mockReturnValue({ select });
-    const supabase = { from } as any;
+    const supabase = mockSupabase({ from });
 
     const result = await listUsers(supabase, "admin-1", { page: 1 });
 
@@ -44,7 +45,7 @@ describe("adminService.listUsers", () => {
     const range = vi.fn().mockReturnValue({ or });
     const select = vi.fn().mockReturnValue({ range });
     const from = vi.fn().mockReturnValue({ select });
-    const supabase = { from } as any;
+    const supabase = mockSupabase({ from });
 
     await listUsers(supabase, "admin-1", { page: 2, search: "jane" });
 
@@ -57,7 +58,7 @@ describe("adminService.listUsers", () => {
     const range = vi.fn().mockReturnValue({ or });
     const select = vi.fn().mockReturnValue({ range });
     const from = vi.fn().mockReturnValue({ select });
-    const supabase = { from } as any;
+    const supabase = mockSupabase({ from });
 
     // `,` ends a condition and `)` closes the or() group in PostgREST's filter DSL —
     // interpolated raw, this term would append an attacker-chosen condition.
@@ -89,7 +90,7 @@ describe("adminService.getUserById", () => {
       if (table === "user_roles") return { select: roleSelect };
       throw new Error(`unexpected table ${table}`);
     });
-    const supabase = { from } as any;
+    const supabase = mockSupabase({ from });
 
     const result = await getUserById(supabase, "admin-1", "u1");
 
@@ -115,7 +116,7 @@ describe("adminService.changeUserRole", () => {
       if (table === "user_roles") return { delete: deleteFn, insert };
       throw new Error(`unexpected table ${table}`);
     });
-    const supabase = { from } as any;
+    const supabase = mockSupabase({ from });
 
     await changeUserRole(supabase, "admin-1", "u1", "admin");
 
@@ -142,7 +143,7 @@ describe("adminService.changeUserRole", () => {
 
   it("refuses to change the caller's own role (no bootstrap flow exists to undo a self-demotion)", async () => {
     const from = vi.fn();
-    const supabase = { from } as any;
+    const supabase = mockSupabase({ from });
 
     await expect(changeUserRole(supabase, "admin-1", "admin-1", "user")).rejects.toThrow(ForbiddenError);
 
@@ -159,7 +160,7 @@ describe("adminService.changeUserRole", () => {
       if (table === "roles") return { select: rolesSelect };
       throw new Error(`unexpected table ${table}`);
     });
-    const supabase = { from } as any;
+    const supabase = mockSupabase({ from });
 
     await expect(changeUserRole(supabase, "admin-1", "u1", "superadmin")).rejects.toThrow();
     expect(insertAuditLog).not.toHaveBeenCalled();
@@ -171,7 +172,7 @@ describe("adminService.setAccountStatus", () => {
   it("requires users:suspend, updates status via the caller's own client, and logs/notifies via the service-role admin client", async () => {
     const eq = vi.fn().mockResolvedValue({ error: null });
     const update = vi.fn().mockReturnValue({ eq });
-    const supabase = { from: vi.fn().mockReturnValue({ update }) } as any;
+    const supabase = mockSupabase({ from: vi.fn().mockReturnValue({ update }) });
 
     await setAccountStatus(supabase, "admin-1", "u1", "suspended");
 
@@ -192,7 +193,7 @@ describe("adminService.setAccountStatus", () => {
 
   it("refuses to suspend the caller's own account (self-lockout has no recovery path)", async () => {
     const from = vi.fn();
-    const supabase = { from } as any;
+    const supabase = mockSupabase({ from });
 
     await expect(setAccountStatus(supabase, "admin-1", "admin-1", "suspended")).rejects.toThrow(ForbiddenError);
 
