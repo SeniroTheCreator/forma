@@ -11,6 +11,56 @@ plumbing here, without having to rework it. See [`docs/architecture.md`](docs/ar
 for the layering this is designed around, and [`docs/database.md`](docs/database.md)
 for the schema.
 
+## Features
+
+**Authentication**
+- Signup with first/last name, email, password + confirmation
+- Login / logout with secure, cookie-based sessions (`@supabase/ssr`)
+- Email verification on signup, with a resend-verification flow
+- Forgot password → email reset link → set new password
+- Change password (re-authenticates with the current password first)
+- Every auth action is rate-limited via Upstash Redis (fails *open*, not
+  closed, if the rate limiter's backing store is unreachable, so a misconfigured
+  or down rate limiter never blocks legitimate signups/logins)
+
+**Authorization (RBAC)**
+- Database-backed roles and permissions (`roles`, `permissions`,
+  `role_permissions`, `user_roles` — not a hardcoded enum), with a single
+  `has_permission(user, permission)` function used consistently by application
+  code, Postgres Row-Level Security policies, and database triggers
+- Enforced at two independent layers: the service layer rejects unauthorized
+  calls with a clean error *before* touching the database, and Postgres RLS
+  independently re-enforces the same boundary — a bug in one layer can't be
+  exploited past the other
+
+**User dashboard**
+- Profile editing (first/last name)
+- Avatar upload to Supabase Storage, with server-side file-size and MIME-type
+  validation (rejected both at the app layer and at the storage-bucket level)
+- In-app notification center (bell icon with unread count, mark-as-read)
+
+**Admin panel**
+- Searchable, paginated user list
+- Change a user's role; suspend or reactivate an account — both take effect
+  immediately (a suspended user is signed out and blocked from logging back in)
+- Every admin action writes an audit-log entry and notifies the affected user
+- Admins cannot demote or suspend their own account (no accidental lockout)
+
+**Security**
+- Password hashing, SQL-injection protection, and email-verified sessions all
+  handled by Supabase Auth
+- All input validated with `zod` before it reaches any service
+- Security headers (CSP, `X-Frame-Options`, `Strict-Transport-Security`, etc.)
+- Structured logging (`pino`) with automatic redaction of secrets
+- Centralized, typed error handling (`AppError` → consistent client responses)
+
+**Landing page** — a responsive marketing page (hero, features, CTA) as a
+placeholder, meant to be replaced once you know what you're building.
+
+**Testing** — 119 unit/integration tests (Vitest) plus a Playwright end-to-end
+suite covering signup → login → dashboard, avatar upload persistence, and the
+full admin role-change/suspend journey. See [Testing](#testing) below.
+
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui
@@ -128,6 +178,42 @@ and why each cross-cutting `lib/` module exists separately.
 See [`docs/database.md`](docs/database.md) for every table, its RLS policies, and
 the triggers that provision a new user's `public.users`/`user_roles` rows on
 signup.
+
+## Deployment
+
+This is a Next.js + Supabase app — it needs a real Node server (Server Actions,
+API routes) and a live Postgres database, so it can't run on static hosting like
+GitHub Pages. The free, standard way to run it 24/7:
+
+1. **Create a Supabase Cloud project** at [supabase.com](https://supabase.com)
+   (free tier). This becomes your *production* database, separate from the
+   local Docker one used in development.
+2. **Push the schema**: `pnpm supabase link --project-ref <your-project-ref>`,
+   then `pnpm supabase db push` to apply every migration in
+   `supabase/migrations/` to the cloud project. Run `supabase/seed.sql`'s
+   admin-account creation manually (or via the Supabase SQL editor) if you want
+   a seeded admin in production — don't rely on the local dev seed script as-is
+   for a real deployment, since it uses a known test password.
+3. **Deploy to [Vercel](https://vercel.com)** (free tier, built by the Next.js
+   team): import this GitHub repo, and it auto-detects the Next.js app.
+4. **Set environment variables** in the Vercel project settings, using your
+   Supabase Cloud project's values (Project Settings → API in the Supabase
+   dashboard) in place of the local placeholders in `.env.example`:
+   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SITE_URL` (your Vercel URL). Add
+   real `RESEND_API_KEY`/`UPSTASH_REDIS_REST_*` values if/when you want email
+   sending and rate limiting to be fully live in production — the app runs
+   without them (email isn't called from app code today; rate limiting fails
+   open), but production traffic should have real rate limiting.
+5. Every push to `main` auto-deploys via Vercel's GitHub integration.
+
+## Running it locally without a terminal
+
+`run-locally.bat` (Windows) starts Docker's Supabase stack if it isn't already
+running, starts the dev server, and opens the app in your browser. Double-click
+it, or run it from a terminal. Close its window to stop the dev server (Docker/
+Supabase keeps running in the background — run `pnpm supabase stop` to stop
+that too).
 
 ## Other scripts
 
