@@ -1,98 +1,122 @@
-import Link from "next/link";
+"use client";
 
-const features = [
-  {
-    title: "Authentication, ready to go",
-    description:
-      "Signup, login, email verification, and password recovery are wired up from the start, so you don't have to build them again.",
-  },
-  {
-    title: "Permissions built in",
-    description:
-      "Role-based access control lets you decide who can see and do what, without bolting it on after the fact.",
-  },
-  {
-    title: "Secure by default",
-    description:
-      "Sensible security headers, request validation, and rate limiting are configured out of the box, not left as an afterthought.",
-  },
-  {
-    title: "Ready to scale",
-    description:
-      "A structured database, file storage, and notifications are already in place so you can focus on what makes your product different.",
-  },
-];
+import Link from "next/link";
+import { useSelector } from "react-redux";
+import { selectLocale } from "@/store/slices/uiSlice";
+import { landingCopy } from "@/lib/i18n/landingCopy";
 
 export default function LandingPage() {
+  const locale = useSelector(selectLocale);
+  const t = landingCopy[locale];
+
   return (
     <>
-      <section className="mx-auto max-w-6xl px-4 pt-20 pb-16 text-center sm:px-6 sm:pt-28 sm:pb-24 lg:px-8">
-        <h1 className="text-4xl font-bold tracking-tight text-zinc-900 sm:text-5xl md:text-6xl">
-          A foundation you can build anything on.
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-600 sm:text-xl">
-          Authentication, permissions, and security are already handled, so you can skip the
-          boilerplate and start building the product you actually set out to make.
-        </p>
-        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Link
-            href="/signup"
-            className="w-full rounded-md bg-zinc-900 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-zinc-700 sm:w-auto"
-          >
-            Get started
-          </Link>
-          <Link
-            href="/login"
-            className="w-full rounded-md border border-zinc-300 px-6 py-3 text-base font-medium text-zinc-700 transition-colors hover:bg-zinc-50 sm:w-auto"
-          >
-            Log in
-          </Link>
+      {/* activity strip */}
+      <div className="overflow-hidden border-b border-border px-4 py-2.5 text-xs text-muted-foreground sm:px-6 lg:px-8">
+        <span className="text-ok">●</span>
+        {"  "}
+        {t.activity.join("  ·  ")}
+      </div>
+
+      {/* hero */}
+      <section className="mx-auto flex max-w-6xl flex-col items-center gap-12 px-4 pt-16 pb-16 sm:px-6 sm:pt-20 sm:pb-20 lg:flex-row lg:items-center lg:px-8 lg:pt-24 lg:pb-24">
+        <div className="max-w-xl text-center lg:text-left">
+          <p className="text-sm text-muted-foreground">{t.hero.eyebrow}</p>
+          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            {t.hero.headline}
+          </h1>
+          <p className="mt-5 text-base leading-relaxed text-muted-foreground sm:text-lg">{t.hero.subhead}</p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
+            <Link
+              href="/signup"
+              className="w-full rounded-md bg-foreground px-6 py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90 sm:w-auto"
+            >
+              {t.hero.primaryCta}
+            </Link>
+            <Link
+              href="/login"
+              className="w-full rounded-md border border-white/15 px-6 py-3 text-sm font-medium text-foreground transition-colors hover:bg-white/5 sm:w-auto"
+            >
+              {t.hero.secondaryCta}
+            </Link>
+          </div>
+        </div>
+
+        {/* product preview card */}
+        <div className="w-full max-w-md" aria-hidden="true">
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-card shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
+            <div className="flex gap-1.5 border-b border-white/10 px-4 py-3">
+              <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+              <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+              <span className="h-2.5 w-2.5 rounded-full bg-white/15" />
+            </div>
+            <div className="space-y-1 p-5">
+              <p className="mb-3 text-xs text-muted-foreground">Team members</p>
+              {[
+                { name: "Ada Lovelace", role: "admin", tone: "ok" },
+                { name: "Grace Hopper", role: "member", tone: "neutral" },
+                { name: "Alan Turing", role: "suspended", tone: "warn" },
+              ].map((member) => (
+                <div key={member.name} className="flex items-center justify-between border-b border-white/5 py-2.5 last:border-0">
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-6 w-6 rounded-full bg-white/15" />
+                    <span className="text-sm text-foreground">{member.name}</span>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-[10.5px] ${
+                      member.tone === "ok"
+                        ? "bg-ok/15 text-ok"
+                        : member.tone === "warn"
+                          ? "bg-warn/15 text-warn"
+                          : "bg-white/10 text-muted-foreground"
+                    }`}
+                  >
+                    {member.role}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      <section id="features" className="border-t border-zinc-200 bg-zinc-50">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
-              Everything a new product needs on day one
+      {/* reassurance */}
+      <div className="border-y border-border px-4 py-5 text-center text-sm text-muted-foreground sm:px-6 lg:px-8">
+        {t.reassurance}
+      </div>
+
+      {/* feature grid */}
+      <section id="features" className="px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+        <div className="mx-auto max-w-6xl">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+              {t.featuresHeading.title}
             </h2>
-            <p className="mt-4 text-lg text-zinc-600">
-              The pieces every application needs, already in place, so you can spend your time on
-              what makes yours different.
-            </p>
+            <p className="mt-3 text-base text-muted-foreground">{t.featuresHeading.subtitle}</p>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
-            {features.map((feature) => (
-              <div
-                key={feature.title}
-                className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm"
-              >
-                <h3 className="text-base font-semibold text-zinc-900">{feature.title}</h3>
-                <p className="mt-2 text-sm text-zinc-600">{feature.description}</p>
+          <div className="mt-10 grid grid-cols-1 border border-border sm:grid-cols-2 lg:grid-cols-3">
+            {t.features.map((feature) => (
+              <div key={feature.title} className="border-b border-r border-border p-6">
+                <h3 className="text-[15px] font-semibold text-foreground">{feature.title}</h3>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">{feature.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="border-t border-zinc-200 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-16 text-center sm:px-6 sm:py-24 lg:px-8">
-          <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">
-            Ready to start building?
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-zinc-600">
-            Create an account and get straight to building the product on top of a foundation
-            that&apos;s already handling the rest.
-          </p>
-          <div className="mt-8">
-            <Link
-              href="/signup"
-              className="inline-block rounded-md bg-zinc-900 px-6 py-3 text-base font-medium text-white transition-colors hover:bg-zinc-700"
-            >
-              Create your account
-            </Link>
-          </div>
+      {/* CTA */}
+      <section className="border-t border-border px-4 py-16 text-center sm:px-6 sm:py-24 lg:px-8">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{t.cta.headline}</h2>
+        <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">{t.cta.subtext}</p>
+        <div className="mt-8">
+          <Link
+            href="/signup"
+            className="inline-block rounded-md bg-foreground px-6 py-3 text-sm font-semibold text-background transition-opacity hover:opacity-90"
+          >
+            {t.cta.button}
+          </Link>
         </div>
       </section>
     </>

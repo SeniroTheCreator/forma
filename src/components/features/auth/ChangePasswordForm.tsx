@@ -10,17 +10,22 @@ import { showToast } from "@/store/slices/uiSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordStrengthMeter } from "@/components/features/auth/PasswordStrengthMeter";
 
 export function ChangePasswordForm() {
   const dispatch = useDispatch();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string>();
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const {
     register,
     handleSubmit,
+    watch,
     reset,
     formState: { errors },
-  } = useForm<ChangePasswordInput>({ resolver: zodResolver(changePasswordSchema) });
+  } = useForm<ChangePasswordInput>({ resolver: zodResolver(changePasswordSchema), mode: "onChange" });
+
+  const newPassword = watch("newPassword") ?? "";
 
   const onSubmit = (data: ChangePasswordInput) => {
     setServerError(undefined);
@@ -42,17 +47,24 @@ export function ChangePasswordForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
         <Label htmlFor="currentPassword">Current password</Label>
-        <Input id="currentPassword" type="password" {...register("currentPassword")} />
+        <Input id="currentPassword" type="password" placeholder="Your current password" {...register("currentPassword")} />
         {errors.currentPassword && (
-          <p className="text-sm text-red-600">{errors.currentPassword.message}</p>
+          <p className="text-sm text-destructive">{errors.currentPassword.message}</p>
         )}
       </div>
       <div>
         <Label htmlFor="newPassword">New password</Label>
-        <Input id="newPassword" type="password" {...register("newPassword")} />
-        {errors.newPassword && <p className="text-sm text-red-600">{errors.newPassword.message}</p>}
+        <Input
+          id="newPassword"
+          type="password"
+          placeholder="At least 8 characters"
+          {...register("newPassword", { onBlur: () => setPasswordFocused(false) })}
+          onFocus={() => setPasswordFocused(true)}
+        />
+        <PasswordStrengthMeter password={newPassword} show={passwordFocused || newPassword.length > 0} />
+        {errors.newPassword && <p className="mt-1.5 text-sm text-destructive">{errors.newPassword.message}</p>}
       </div>
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
+      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
       <Button type="submit" disabled={isPending}>
         {isPending ? "Changing..." : "Change password"}
       </Button>

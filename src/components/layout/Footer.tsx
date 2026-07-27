@@ -1,27 +1,31 @@
-const footerLinks = [
-  { href: "/about", label: "About" },
-  { href: "/privacy", label: "Privacy" },
-  { href: "/terms", label: "Terms" },
-];
+"use client";
+
+import Link from "next/link";
+import { useSelector } from "react-redux";
+import { selectLocale } from "@/store/slices/uiSlice";
+import { landingCopy } from "@/lib/i18n/landingCopy";
 
 export function Footer() {
+  const locale = useSelector(selectLocale);
+  const t = landingCopy[locale];
+
   return (
-    <footer className="border-t border-zinc-200 bg-white">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 sm:flex-row sm:justify-between sm:px-6 lg:px-8">
-        <p className="text-sm text-zinc-500">
-          &copy; {new Date().getFullYear()} Forma. All rights reserved.
+    <footer className="border-t border-border bg-background">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-8 text-muted-foreground sm:flex-row sm:justify-between sm:px-6 lg:px-8">
+        <p className="text-sm">
+          &copy; {new Date().getFullYear()} Forma. {t.footer.rights}
         </p>
 
         <nav className="flex items-center gap-6">
-          {footerLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="text-sm text-zinc-500 transition-colors hover:text-zinc-900"
-            >
-              {link.label}
-            </a>
-          ))}
+          <Link href="/about" className="text-sm transition-colors hover:text-foreground">
+            {t.nav.about}
+          </Link>
+          <Link href="/privacy" className="text-sm transition-colors hover:text-foreground">
+            {t.nav.privacy}
+          </Link>
+          <Link href="/terms" className="text-sm transition-colors hover:text-foreground">
+            {t.nav.terms}
+          </Link>
         </nav>
       </div>
     </footer>

@@ -9,16 +9,21 @@ import { resetPasswordAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordStrengthMeter } from "@/components/features/auth/PasswordStrengthMeter";
 
 export function ResetPasswordForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string>();
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
-  } = useForm<ResetPasswordInput>({ resolver: zodResolver(resetPasswordSchema) });
+  } = useForm<ResetPasswordInput>({ resolver: zodResolver(resetPasswordSchema), mode: "onChange" });
+
+  const password = watch("password") ?? "";
 
   const onSubmit = (data: ResetPasswordInput) => {
     setServerError(undefined);
@@ -35,16 +40,23 @@ export function ResetPasswordForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
         <Label htmlFor="password">New password</Label>
-        <Input id="password" type="password" {...register("password")} />
-        {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
+        <Input
+          id="password"
+          type="password"
+          placeholder="At least 8 characters"
+          {...register("password", { onBlur: () => setPasswordFocused(false) })}
+          onFocus={() => setPasswordFocused(true)}
+        />
+        <PasswordStrengthMeter password={password} show={passwordFocused || password.length > 0} />
+        {errors.password && <p className="mt-1.5 text-sm text-destructive">{errors.password.message}</p>}
       </div>
       <div>
         <Label htmlFor="confirmPassword">Confirm password</Label>
-        <Input id="confirmPassword" type="password" {...register("confirmPassword")} />
-        {errors.confirmPassword && <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>}
+        <Input id="confirmPassword" type="password" placeholder="Type your password again" {...register("confirmPassword")} />
+        {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
       </div>
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
-      <Button type="submit" disabled={isPending}>
+      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      <Button type="submit" disabled={isPending} className="w-full">
         {isPending ? "Resetting..." : "Reset password"}
       </Button>
     </form>

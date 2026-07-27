@@ -8,16 +8,21 @@ import { signupAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordStrengthMeter } from "@/components/features/auth/PasswordStrengthMeter";
 
 export function SignupForm() {
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string>();
   const [submitted, setSubmitted] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
-  } = useForm<SignupInput>({ resolver: zodResolver(signupSchema) });
+  } = useForm<SignupInput>({ resolver: zodResolver(signupSchema), mode: "onChange" });
+
+  const password = watch("password") ?? "";
 
   const onSubmit = (data: SignupInput) => {
     setServerError(undefined);
@@ -38,31 +43,40 @@ export function SignupForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
         <Label htmlFor="firstName">First name</Label>
-        <Input id="firstName" {...register("firstName")} />
-        {errors.firstName && <p className="text-sm text-red-600">{errors.firstName.message}</p>}
+        <Input id="firstName" placeholder="e.g. John" {...register("firstName")} />
+        {errors.firstName && <p className="text-sm text-destructive">{errors.firstName.message}</p>}
       </div>
       <div>
         <Label htmlFor="lastName">Last name</Label>
-        <Input id="lastName" {...register("lastName")} />
-        {errors.lastName && <p className="text-sm text-red-600">{errors.lastName.message}</p>}
+        <Input id="lastName" placeholder="e.g. Smith" {...register("lastName")} />
+        {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
       </div>
       <div>
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" {...register("email")} />
-        {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
+        <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+        {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
       <div>
         <Label htmlFor="password">Password</Label>
-        <Input id="password" type="password" {...register("password")} />
-        {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
+        <Input
+          id="password"
+          type="password"
+          placeholder="At least 8 characters"
+          {...register("password", {
+            onBlur: () => setPasswordFocused(false),
+          })}
+          onFocus={() => setPasswordFocused(true)}
+        />
+        <PasswordStrengthMeter password={password} show={passwordFocused || password.length > 0} />
+        {errors.password && <p className="mt-1.5 text-sm text-destructive">{errors.password.message}</p>}
       </div>
       <div>
         <Label htmlFor="confirmPassword">Confirm password</Label>
-        <Input id="confirmPassword" type="password" {...register("confirmPassword")} />
-        {errors.confirmPassword && <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>}
+        <Input id="confirmPassword" type="password" placeholder="Type your password again" {...register("confirmPassword")} />
+        {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
       </div>
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
-      <Button type="submit" disabled={isPending}>
+      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      <Button type="submit" disabled={isPending} className="w-full">
         {isPending ? "Creating account..." : "Sign up"}
       </Button>
     </form>

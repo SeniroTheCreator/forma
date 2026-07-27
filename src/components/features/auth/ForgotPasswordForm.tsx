@@ -17,7 +17,7 @@ export function ForgotPasswordForm() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<ForgotPasswordInput>({ resolver: zodResolver(forgotPasswordSchema) });
+  } = useForm<ForgotPasswordInput>({ resolver: zodResolver(forgotPasswordSchema), mode: "onChange" });
 
   const onSubmit = (data: ForgotPasswordInput) => {
     setServerError(undefined);
@@ -38,11 +38,11 @@ export function ForgotPasswordForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
         <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" {...register("email")} />
-        {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
+        <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+        {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
-      {serverError && <p className="text-sm text-red-600">{serverError}</p>}
-      <Button type="submit" disabled={isPending}>
+      {serverError && <p className="text-sm text-destructive">{serverError}</p>}
+      <Button type="submit" disabled={isPending} className="w-full">
         {isPending ? "Sending..." : "Send reset link"}
       </Button>
     </form>
