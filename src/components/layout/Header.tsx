@@ -1,9 +1,6 @@
 import Link from "next/link";
 
-const navLinks = [
-  { href: "#features", label: "Features" },
-  { href: "#pricing", label: "Pricing" },
-];
+const navLinks = [{ href: "#features", label: "Features" }];
 
 export function Header() {
   return (
