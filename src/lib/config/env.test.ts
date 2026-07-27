@@ -60,6 +60,15 @@ describe("env config", () => {
       vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co");
       vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "anon-key");
       vi.stubEnv("NEXT_PUBLIC_SITE_URL", "http://localhost:3000");
+      // Explicitly blank out the server-only vars rather than relying on
+      // ambient absence — vitest.config.ts loads real values from
+      // .env.local (for the auth-actions integration test) into
+      // process.env for the whole run, so they are no longer undefined by
+      // default here.
+      vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+      vi.stubEnv("RESEND_API_KEY", "");
+      vi.stubEnv("UPSTASH_REDIS_REST_URL", "");
+      vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "");
       // Missing server-only vars - import should fail with eager validation
       await expect(async () => {
         await import("./env");
