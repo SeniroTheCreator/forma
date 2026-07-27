@@ -82,9 +82,17 @@ export async function changeUserRole(supabase: SupabaseClient, callerId: string,
  * Suspends or reactivates a target user's account.
  *
  * Same client split as `changeUserRole`: the permission check and the `users` table
- * mutation run against the caller's own client (RLS + the `protect_account_status`
- * trigger genuinely gate this), and only the audit_log/notification writes use the
- * service-role admin client.
+ * mutation run against the caller's own client, and only the audit_log/notification
+ * writes use the service-role admin client.
+ *
+ * Independent defense-in-depth: the `protect_account_status` trigger (see
+ * 0005_fix_account_status_permission.sql) separately re-checks
+ * `has_permission(auth.uid(), 'users:suspend')` at the DB level and silently reverts any
+ * `account_status` change that lacks it — this matches the `users:suspend` permission
+ * this function requires above, so a caller who only has `users:write` (e.g. a role that
+ * can edit other users' profiles but is not permitted to suspend/reactivate them) cannot
+ * flip `account_status` via a direct Data API call even though they could update other
+ * fields on the same row.
  */
 export async function setAccountStatus(
   supabase: SupabaseClient,
