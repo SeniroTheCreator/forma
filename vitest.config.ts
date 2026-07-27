@@ -82,6 +82,15 @@ export default defineConfig({
           globals: true,
           include: ["tests/integration/**/*.test.{ts,tsx}"],
           env: integrationEnv,
+          // Boots (and tears down) `pnpm dev` for the tests that exercise src/proxy.ts
+          // through real HTTP, reusing an already-running server if there is one. See
+          // tests/setup/devServer.ts. Scoped to this project, so the unit project never
+          // pays for it.
+          globalSetup: ["./tests/setup/devServer.ts"],
+          // Real Supabase Auth round trips (signup/login) plus real Next.js route
+          // rendering are well past Vitest's 5s default.
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
         },
       },
     ],

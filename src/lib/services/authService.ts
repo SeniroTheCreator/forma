@@ -9,6 +9,15 @@ import type {
   ChangePasswordInput,
 } from "@/lib/validation/authSchemas";
 
+/**
+ * Shown (and returned by `loginAction`) when a suspended account's otherwise-correct
+ * credentials are rejected, and by the `/login?suspended=1` banner a suspended live
+ * session is redirected to from `src/proxy.ts`. Exported from here rather than from the
+ * `"use server"` actions module, which may only export async functions.
+ */
+export const SUSPENDED_ACCOUNT_MESSAGE =
+  "Your account has been suspended. Contact support if you believe this is a mistake.";
+
 export async function signup(supabase: SupabaseClient, input: SignupInput): Promise<{ userId: string }> {
   const { data, error } = await supabase.auth.signUp({
     email: input.email,

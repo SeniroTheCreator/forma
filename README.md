@@ -79,12 +79,25 @@ pnpm test        # runs once
 pnpm test:watch  # watch mode
 ```
 
-This runs two Vitest projects: `unit` (colocated `src/**/*.test.ts` files —
-validation schemas, permissions, services with a mocked db layer, config
-parsing, etc., no external dependencies) and `integration` (`tests/integration/**`
-— exercises Server Actions and route protection against a **real local Supabase
-instance**, so `pnpm supabase start` must already be running for the
-integration project to pass).
+This runs two Vitest projects:
+
+- **`unit`** — colocated `src/**/*.test.ts(x)` files: validation schemas,
+  permissions, services with a mocked db layer, config parsing, Redux slices,
+  components. No external dependencies; runs anywhere.
+- **`integration`** — `tests/integration/**`: exercises Server Actions and
+  `src/proxy.ts` route protection against a **real local Supabase instance**,
+  with nothing mocked except Next's request-context plumbing. `pnpm supabase
+  start` must already be running.
+
+The integration project needs a running app for the `src/proxy.ts` tests (proxy
+code only runs inside a real Next.js request), so it boots `pnpm dev` itself via
+a Vitest `globalSetup` (`tests/setup/devServer.ts`) and shuts it down when the
+run finishes. If something is already serving http://localhost:3000, that server
+is reused and left running instead. So `pnpm test` is self-contained: with only
+`pnpm supabase start` running, `pnpm test` from a clean checkout is green.
+
+Integration tests create real Supabase Auth users and delete them again when the
+suite finishes; a completed run leaves the database exactly as it found it.
 
 End-to-end tests (Playwright):
 
