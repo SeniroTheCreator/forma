@@ -28,7 +28,7 @@ export default async function SettingsPage() {
           <CardTitle>Avatar</CardTitle>
         </CardHeader>
         <CardContent>
-          <AvatarUpload />
+          <AvatarUpload initialAvatarUrl={profile.avatar_url} />
         </CardContent>
       </Card>
 

@@ -39,12 +39,11 @@ export async function uploadAvatarAction(formData: FormData): Promise<{ error?: 
     } = await supabase.auth.getUser();
     if (!user) throw new AuthError("Not authenticated");
 
-    const { path } = await fileService.uploadAvatar(supabase, user.id, file);
-    // Resolved server-side (rather than in the client component) since the public URL
-    // is a pure string transform of NEXT_PUBLIC_SUPABASE_URL + path — no need for a
-    // second, browser-side Supabase client just to compute it.
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    return { url: data.publicUrl };
+    // The public URL is resolved (and persisted to users.avatar_url) inside the service,
+    // so the same value the settings page will read back on the next load is what gets
+    // handed to the client component here.
+    const { publicUrl } = await fileService.uploadAvatar(supabase, user.id, file);
+    return { url: publicUrl };
   } catch (err) {
     logger.warn({ err }, "avatar upload failed");
     return { error: mapErrorToResponse(err).body.error };
