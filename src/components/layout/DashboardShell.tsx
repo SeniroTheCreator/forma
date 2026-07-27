@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { logoutAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/features/notifications/NotificationBell";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -58,7 +59,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 bg-muted/30 p-8">{children}</main>
+      <div className="flex flex-1 flex-col">
+        <header className="flex h-16 items-center justify-end border-b border-zinc-200 bg-white px-6">
+          <NotificationBell />
+        </header>
+        <main className="flex-1 bg-muted/30 p-8">{children}</main>
+      </div>
     </div>
   );
 }
