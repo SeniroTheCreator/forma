@@ -7,9 +7,14 @@ vi.mock("@/lib/config/env", () => ({
     UPSTASH_REDIS_REST_TOKEN: "test-token",
   },
 }));
+vi.mock("@/lib/logger", () => ({
+  logger: {
+    warn: vi.fn(),
+  },
+}));
 
 // Global mock state for controlling behavior per test
-const mockState = { success: false };
+const mockState = { success: false, shouldThrow: false };
 
 vi.mock("@upstash/ratelimit", () => {
   return {
@@ -17,7 +22,12 @@ vi.mock("@upstash/ratelimit", () => {
       static slidingWindow() {
         return {};
       }
-      limit = async () => ({ success: mockState.success });
+      limit = async () => {
+        if (mockState.shouldThrow) {
+          throw new Error("Redis connection failed: Unable to reach Upstash Redis");
+        }
+        return { success: mockState.success };
+      };
     },
   };
 });
@@ -29,6 +39,7 @@ import { RateLimitError } from "@/lib/errors/AppError";
 describe("rateLimit", () => {
   afterEach(() => {
     mockState.success = false;
+    mockState.shouldThrow = false;
   });
 
   it("throws RateLimitError when the limiter denies the request", async () => {
@@ -38,5 +49,10 @@ describe("rateLimit", () => {
   it("resolves without throwing when the limiter allows the request", async () => {
     mockState.success = true;
     await expect(enforceRateLimit("signup:1.2.3.4")).resolves.toBeUndefined();
+  });
+
+  it("fails open (resolves without throwing) when rate limiter infra is unreachable", async () => {
+    mockState.shouldThrow = true;
+    await expect(enforceRateLimit("login:1.2.3.4")).resolves.toBeUndefined();
   });
 });
