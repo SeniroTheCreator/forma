@@ -53,6 +53,21 @@ describe("authService.signup", () => {
     });
   });
 
+  it("signs the session back out after a successful signup (guards against local auto-confirm auto-login)", async () => {
+    const supabase = makeSupabaseMock();
+    supabase.auth.signUp.mockResolvedValue({ data: { user: { id: "user-1" } }, error: null });
+
+    await signup(supabase, {
+      firstName: "Ada",
+      lastName: "Lovelace",
+      email: "ada@example.com",
+      password: "correct-horse-1",
+      confirmPassword: "correct-horse-1",
+    });
+
+    expect(supabase.auth.signOut).toHaveBeenCalled();
+  });
+
   it("throws AuthError when Supabase returns an error", async () => {
     const supabase = makeSupabaseMock();
     supabase.auth.signUp.mockResolvedValue({ data: { user: null }, error: { message: "Email already registered" } });

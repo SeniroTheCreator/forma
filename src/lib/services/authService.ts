@@ -18,6 +18,12 @@ export async function signup(supabase: SupabaseClient, input: SignupInput): Prom
   if (error || !data.user) {
     throw new AuthError(error?.message ?? "Signup failed");
   }
+  // When email confirmation is disabled (local/dev), signUp() auto-confirms the address
+  // and returns an active session immediately. Sign back out so a brand-new account never
+  // gets silent dashboard access — the user must log in explicitly, matching the "check your
+  // email to verify your account" messaging. This is a no-op in environments where email
+  // confirmation is required, since no session exists yet in that case.
+  await supabase.auth.signOut();
   return { userId: data.user.id };
 }
 
