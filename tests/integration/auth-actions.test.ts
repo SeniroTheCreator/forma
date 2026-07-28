@@ -59,6 +59,29 @@ describe("auth Server Actions (integration, local Supabase)", () => {
     const result = await loginAction(formData({ email: "nobody@example.com", password: "whatever123" }));
     expect(result.error).toBeDefined();
   });
+
+  it("signupAction rejects an email that already belongs to a confirmed account", async () => {
+    const email = `test-existing-${Date.now()}@example.com`;
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password: "correct-horse-1",
+      email_confirm: true,
+      user_metadata: { first_name: "Existing", last_name: "User" },
+    });
+    if (error || !data.user) throw error ?? new Error("could not create the test user");
+    createdEmails.push(email);
+
+    const result = await signupAction(
+      formData({
+        firstName: "Ada",
+        lastName: "Lovelace",
+        email,
+        password: "correct-horse-1",
+        confirmPassword: "correct-horse-1",
+      })
+    );
+    expect(result.error).toBe("An account with this email already exists.");
+  });
 });
 
 describe("loginAction account suspension enforcement (integration, local Supabase)", () => {

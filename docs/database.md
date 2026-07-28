@@ -133,10 +133,12 @@ additionally gets `admin` via `supabase/seed.sql`.
     not just the app-level `requirePermission` call — genuinely gates the
     action).
 
-### `public.files` (migration `0002`)
+### `public.files` (migrations `0002`, `0008`)
 
 Generic file-metadata table; first (and currently only) consumer is avatar
-upload (`fileService.uploadAvatar`).
+upload (`fileService.uploadAvatar`, called both by a user's own settings-page
+upload and — with `targetId` in place of the caller's own id — by
+`adminService.uploadUserAvatar`).
 
 | Column | Type | Notes |
 |---|---|---|
@@ -151,7 +153,13 @@ upload (`fileService.uploadAvatar`).
 
 - Grants: `authenticated` → full CRUD; `service_role` → full CRUD.
 - RLS: owner-only CRUD (`owner_id = auth.uid()`, both `using` and `with
-  check`); separately, anyone with `users:read` can `select` any row.
+  check`, policy `"files owner crud"`); separately, anyone with `users:read`
+  can `select` any row (`"files admin read"`), and — since migration `0008` —
+  anyone with `users:write` can `insert` a row for any `owner_id`
+  (`"files admin insert"`), which is what lets an admin's own RLS-scoped
+  client insert the file record for an avatar uploaded on someone else's
+  behalf. Scoped to INSERT only: an admin uploading an avatar has no
+  legitimate reason to update or delete another user's unrelated file rows.
 
 ### `public.notifications` (migration `0002`)
 
@@ -198,7 +206,7 @@ Immutable record of admin actions (role changes, account suspend/reactivate).
 - Like `notifications`, rows are only ever inserted via the service-role
   client (`insertAuditLog()`), never directly by a user's own session.
 
-### Storage: `avatars` bucket (migrations `0003`, `0006`)
+### Storage: `avatars` bucket (migrations `0003`, `0006`, `0008`)
 
 Not a `public` schema table — a Supabase Storage bucket, created via `insert
 into storage.buckets (id, name, public) values ('avatars', 'avatars', true)`.
@@ -218,14 +226,19 @@ needs).
   public URL to `public.users.avatar_url`; that is the read path the settings
   page uses to render the current avatar back.
 
-- Policy `"avatar owner upload"` on `storage.objects`: `insert with check
-  (bucket_id = 'avatars' and (storage.foldername(name))[1] =
-  auth.uid()::text)` — a user can only upload into a path prefixed with their
-  own user id as the first folder segment (`fileService.uploadAvatar` builds
-  paths as `${userId}/${Date.now()}.${ext}`). INSERT-only: no update/delete
-  policy exists, and uploads must go through with `upsert: false` (storage-js
-  otherwise requires SELECT+UPDATE grants on top of INSERT for an upsert
-  request, which this policy intentionally doesn't grant — see the comment in
+- Policy `"avatar owner or admin upload"` on `storage.objects` (migration
+  `0008`, replacing `0003`'s `"avatar owner upload"`): `insert with check
+  (bucket_id = 'avatars' and ((storage.foldername(name))[1] = auth.uid()::text
+  or has_permission(auth.uid(), 'users:write')))` — a user can upload into a
+  path prefixed with their own user id as the first folder segment
+  (`fileService.uploadAvatar` builds paths as
+  `${userId}/${Date.now()}.${ext}`), OR a caller with `users:write` can upload
+  into *any* user's folder, which is what lets `adminService.uploadUserAvatar`
+  edit another user's avatar through the caller's own RLS-scoped client rather
+  than a service-role client. INSERT-only: no update/delete policy exists, and
+  uploads must go through with `upsert: false` (storage-js otherwise requires
+  SELECT+UPDATE grants on top of INSERT for an upsert request, which this
+  policy intentionally doesn't grant — see the comment in
   `src/lib/services/fileService.ts`).
 
 ## Functions and triggers

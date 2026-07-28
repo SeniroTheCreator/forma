@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useDispatch } from "react-redux";
 import { useRouter } from "next/navigation";
-import { useGetUserQuery, useChangeRoleMutation, useSetStatusMutation } from "@/store/api/adminApi";
+import {
+  useGetUserQuery,
+  useChangeRoleMutation,
+  useSetStatusMutation,
+  useUpdateProfileMutation,
+  useUploadAvatarMutation,
+} from "@/store/api/adminApi";
 import { showToast } from "@/store/slices/uiSlice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 // Only 'user' and 'admin' are seeded (0001_core_schema.sql); there is no roles-listing
@@ -19,11 +27,24 @@ export function UserDetailPanel({ userId }: { userId: string }) {
   const { data: user, isLoading, error } = useGetUserQuery(userId);
   const [changeRole, { isLoading: isChangingRole }] = useChangeRoleMutation();
   const [setStatus, { isLoading: isChangingStatus }] = useSetStatusMutation();
+  const [updateProfile, { isLoading: isSavingProfile }] = useUpdateProfileMutation();
+  const [uploadAvatar, { isLoading: isUploadingAvatar }] = useUploadAvatarMutation();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
   // Local override for the role dropdown while the user is editing it; falls back to the
   // server's authoritative value. Derived during render (no effect needed) — cleared once
   // a change succeeds so the dropdown resyncs with the refetched server value.
   const [roleOverride, setRoleOverride] = useState<string | null>(null);
   const selectedRole = roleOverride ?? user?.role ?? "";
+
+  // Same derive-during-render override pattern as the role dropdown above, just for two
+  // fields at once: falls back to the server's authoritative values, and is cleared once a
+  // save succeeds so the inputs resync with the refetched user.
+  const [nameOverride, setNameOverride] = useState<{ firstName: string; lastName: string } | null>(null);
+  const firstName = nameOverride?.firstName ?? user?.first_name ?? "";
+  const lastName = nameOverride?.lastName ?? user?.last_name ?? "";
+  const setFirstName = (value: string) => setNameOverride({ firstName: value, lastName });
+  const setLastName = (value: string) => setNameOverride({ firstName, lastName: value });
 
   const handleRoleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -53,8 +74,35 @@ export function UserDetailPanel({ userId }: { userId: string }) {
     }
   };
 
+  const handleProfileSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!user || (firstName === user.first_name && lastName === user.last_name)) return;
+    try {
+      await updateProfile({ id: userId, firstName, lastName }).unwrap();
+      setNameOverride(null);
+      dispatch(showToast({ message: "Profile updated successfully", variant: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to update profile", variant: "error" }));
+    }
+  };
+
+  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+    uploadAvatar({ id: userId, formData })
+      .unwrap()
+      .then(() => dispatch(showToast({ message: "Avatar updated successfully", variant: "success" })))
+      .catch(() => dispatch(showToast({ message: "Failed to update avatar", variant: "error" })));
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
+  };
+
   if (isLoading) return <p className="py-6 text-center text-sm text-muted-foreground">Loading user...</p>;
   if (error || !user) return <p className="py-6 text-center text-sm text-red-600">Failed to load user.</p>;
+
+  const profileDirty = firstName !== user.first_name || lastName !== user.last_name;
 
   return (
     <div className="space-y-6">
@@ -82,6 +130,64 @@ export function UserDetailPanel({ userId }: { userId: string }) {
             </span>
           </p>
           <p>Joined {new Date(user.created_at).toLocaleDateString()}</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-100">
+              {user.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element -- avatar comes from Supabase Storage, not a static/optimizable local asset
+                <img
+                  src={user.avatar_url}
+                  alt={`${user.first_name} ${user.last_name}'s avatar`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-xs text-muted-foreground">No avatar</span>
+              )}
+            </div>
+            <div>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+                aria-label="Upload avatar for this user"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={isUploadingAvatar}
+              >
+                {isUploadingAvatar ? "Uploading..." : "Upload avatar"}
+              </Button>
+              <p className="mt-1 text-xs text-muted-foreground">PNG, JPEG, WebP or GIF, up to 5MB.</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleProfileSubmit} className="space-y-3">
+            <div>
+              <Label htmlFor="firstName">First name</Label>
+              <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="lastName">Last name</Label>
+              <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </div>
+            <Button
+              type="submit"
+              disabled={isSavingProfile || !profileDirty || !firstName.trim() || !lastName.trim()}
+            >
+              {isSavingProfile ? "Saving..." : "Save profile"}
+            </Button>
+          </form>
         </CardContent>
       </Card>
 

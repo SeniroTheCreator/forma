@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requirePermission } from "@/lib/permissions";
 import { insertAuditLog } from "@/lib/db/auditLog";
+import { updateUser } from "@/lib/db/users";
 import { notifyUser } from "@/lib/services/notificationService";
+import { uploadAvatar } from "@/lib/services/fileService";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { ForbiddenError } from "@/lib/errors/AppError";
 
@@ -151,4 +153,79 @@ export async function setAccountStatus(
     title: status === "suspended" ? "Your account was suspended" : "Your account was reactivated",
     message: status === "suspended" ? "Contact support if you believe this is a mistake." : "Welcome back!",
   });
+}
+
+/**
+ * Edits a target user's display name.
+ *
+ * Same client split as `changeUserRole`/`setAccountStatus`: the permission check and the
+ * `users` mutation run against the caller's own client, genuinely gated by
+ * `has_permission(auth.uid(), 'users:write')` (the "users update own or with users:write"
+ * RLS policy already covers this — see 0001_core_schema.sql — no migration was needed for
+ * this half). Only the audit_log/notification writes use the service-role client.
+ */
+export async function updateUserProfile(
+  supabase: SupabaseClient,
+  callerId: string,
+  targetId: string,
+  input: { firstName?: string; lastName?: string }
+): Promise<void> {
+  await requirePermission(supabase, callerId, "users:write");
+
+  const fields: { first_name?: string; last_name?: string } = {};
+  if (input.firstName !== undefined) fields.first_name = input.firstName;
+  if (input.lastName !== undefined) fields.last_name = input.lastName;
+  await updateUser(supabase, targetId, fields);
+
+  const adminSupabase = createAdminSupabaseClient();
+  await insertAuditLog(adminSupabase, {
+    actor_id: callerId,
+    action: "user.profile_updated",
+    target_type: "user",
+    target_id: targetId,
+    metadata: input,
+  });
+  await notifyUser(adminSupabase, targetId, {
+    type: "account_profile",
+    title: "Your profile was updated",
+    message: "An administrator updated your name.",
+  });
+}
+
+/**
+ * Uploads a new avatar on behalf of a target user.
+ *
+ * Reuses `fileService.uploadAvatar` (the same function the self-service settings page
+ * calls) with the caller's own client rather than a service-role client, so the Storage
+ * write is genuinely gated by RLS — this only works because migration
+ * 0008_admin_avatar_upload.sql widened the avatars bucket's owner-only INSERT policy to
+ * also accept a caller with `users:write`. `uploadAvatar` internally writes
+ * `users.avatar_url` for `targetId`, which the "users update own or with users:write" RLS
+ * policy and the `avatar_url` column grant (0007) already permit for an admin caller.
+ */
+export async function uploadUserAvatar(
+  supabase: SupabaseClient,
+  callerId: string,
+  targetId: string,
+  file: File
+): Promise<{ path: string; publicUrl: string }> {
+  await requirePermission(supabase, callerId, "users:write");
+
+  const result = await uploadAvatar(supabase, targetId, file);
+
+  const adminSupabase = createAdminSupabaseClient();
+  await insertAuditLog(adminSupabase, {
+    actor_id: callerId,
+    action: "user.avatar_changed",
+    target_type: "user",
+    target_id: targetId,
+    metadata: {},
+  });
+  await notifyUser(adminSupabase, targetId, {
+    type: "account_profile",
+    title: "Your avatar was updated",
+    message: "An administrator updated your profile photo.",
+  });
+
+  return result;
 }

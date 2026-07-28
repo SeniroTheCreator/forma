@@ -5,6 +5,12 @@ import { test, expect, type Page } from "@playwright/test";
 const ADMIN_EMAIL = "admin@example.com";
 const ADMIN_PASSWORD = "admin-password-1";
 
+// A 1x1 PNG — the smallest thing the avatars bucket's allowed_mime_types will accept.
+const ONE_PIXEL_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64"
+);
+
 async function loginAs(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel("Email").fill(email);
@@ -28,6 +34,19 @@ async function signupThroughUi(page: Page, email: string) {
   await expect(page.getByRole("status")).toContainText("verify your account");
 }
 
+// Every test in this file reuses "Target User" as the display name, so the local dev DB
+// accumulates several identically-named rows across repeated runs (nothing here deletes
+// what it creates) — scoping by the row containing the caller's own unique email, rather
+// than matching the link by name, keeps this exact instead of ambiguous once more than one
+// same-named row is on screen at once (whether from a prior run or the Search box briefly
+// still showing the unfiltered list while the filtered request is in flight).
+async function openUserDetail(page: Page, email: string) {
+  await page.getByPlaceholder(/search/i).fill(email);
+  await page.getByRole("button", { name: /^search$/i }).click();
+  await page.getByRole("row").filter({ hasText: email }).getByRole("link").click();
+  await expect(page).toHaveURL(/\/admin\/users\/[0-9a-f-]{36}/);
+}
+
 test("admin can view and search the users table", async ({ page }) => {
   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
@@ -44,14 +63,10 @@ test("admin can change another user's role and suspend their account", async ({ 
 
   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await page.goto("/admin/users");
-  await page.getByPlaceholder(/search/i).fill(targetEmail);
-  await page.getByRole("button", { name: /^search$/i }).click();
-
   // Opening the detail page at all is itself a regression test: a user with more than one
   // user_roles row made getUserById's .single() throw, which is what the seeded admin used
   // to hit on its own detail page.
-  await page.getByRole("link", { name: /target user/i }).click();
-  await expect(page).toHaveURL(/\/admin\/users\/[0-9a-f-]{36}/);
+  await openUserDetail(page, targetEmail);
   await expect(page.getByText(targetEmail)).toBeVisible();
   await expect(page.getByLabel("Role")).toHaveValue("user");
 
@@ -72,12 +87,44 @@ test("admin can change another user's role and suspend their account", async ({ 
   await expect(page.getByRole("button", { name: /reactivate account/i })).toBeVisible();
 });
 
+test("admin can edit another user's name and avatar", async ({ page }) => {
+  const targetEmail = `e2e-profile-${Date.now()}@example.com`;
+  await signupThroughUi(page, targetEmail);
+
+  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await page.goto("/admin/users");
+  await openUserDetail(page, targetEmail);
+
+  await page.getByLabel("First name").fill("Renamed");
+  await page.getByLabel("Last name").fill("Person");
+  await page.getByRole("button", { name: /save profile/i }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Profile updated successfully" })).toBeVisible();
+  // CardTitle (src/components/ui/card.tsx) renders a plain <div>, not a semantic heading
+  // element, so this is a text match rather than getByRole("heading", ...).
+  await expect(page.getByText("Renamed Person")).toBeVisible();
+
+  await expect(page.getByText("No avatar")).toBeVisible();
+  await page.getByLabel("Upload avatar for this user").setInputFiles({
+    name: "avatar.png",
+    mimeType: "image/png",
+    buffer: ONE_PIXEL_PNG,
+  });
+  await expect(page.getByRole("status").filter({ hasText: "Avatar updated successfully" })).toBeVisible();
+  await expect(page.getByAltText("Renamed Person's avatar")).toBeVisible();
+
+  // Both changes must survive a reload — i.e. they were really persisted through the
+  // caller's own RLS-scoped client (per adminService.updateUserProfile/uploadUserAvatar),
+  // not just optimistically reflected in the client cache.
+  await page.reload();
+  await expect(page.getByLabel("First name")).toHaveValue("Renamed");
+  await expect(page.getByLabel("Last name")).toHaveValue("Person");
+  await expect(page.getByAltText("Renamed Person's avatar")).toBeVisible();
+});
+
 test("admin cannot demote or suspend their own account", async ({ page }) => {
   await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await page.goto("/admin/users");
-  await page.getByPlaceholder(/search/i).fill(ADMIN_EMAIL);
-  await page.getByRole("button", { name: /^search$/i }).click();
-  await page.getByRole("link", { name: /admin user/i }).click();
+  await openUserDetail(page, ADMIN_EMAIL);
 
   // There is no bootstrap/re-promotion flow, so a successful self-demotion or
   // self-suspension here would permanently lock the admin panel.

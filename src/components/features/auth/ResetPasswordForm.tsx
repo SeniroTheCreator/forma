@@ -10,8 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordStrengthMeter } from "@/components/features/auth/PasswordStrengthMeter";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function ResetPasswordForm() {
+  const { t } = useTranslation();
+  const resetPassword = t.auth.resetPassword;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string>();
@@ -39,11 +42,11 @@ export function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Label htmlFor="password">New password</Label>
+        <Label htmlFor="password">{resetPassword.newPassword}</Label>
         <Input
           id="password"
           type="password"
-          placeholder="At least 8 characters"
+          placeholder={resetPassword.passwordPlaceholder}
           {...register("password", { onBlur: () => setPasswordFocused(false) })}
           onFocus={() => setPasswordFocused(true)}
         />
@@ -51,13 +54,18 @@ export function ResetPasswordForm() {
         {errors.password && <p className="mt-1.5 text-sm text-destructive">{errors.password.message}</p>}
       </div>
       <div>
-        <Label htmlFor="confirmPassword">Confirm password</Label>
-        <Input id="confirmPassword" type="password" placeholder="Type your password again" {...register("confirmPassword")} />
+        <Label htmlFor="confirmPassword">{resetPassword.confirmPassword}</Label>
+        <Input
+          id="confirmPassword"
+          type="password"
+          placeholder={resetPassword.confirmPasswordPlaceholder}
+          {...register("confirmPassword")}
+        />
         {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
       </div>
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
       <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Resetting..." : "Reset password"}
+        {isPending ? resetPassword.submitting : resetPassword.submit}
       </Button>
     </form>
   );

@@ -1,13 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useSelector } from "react-redux";
-import { selectLocale } from "@/store/slices/uiSlice";
-import { landingCopy } from "@/lib/i18n/landingCopy";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function Footer() {
-  const locale = useSelector(selectLocale);
-  const t = landingCopy[locale];
+  const { t } = useTranslation();
 
   return (
     <footer className="border-t border-border bg-background">

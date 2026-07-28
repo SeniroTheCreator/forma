@@ -6,6 +6,7 @@ export interface AdminUserDto {
   last_name: string;
   email: string;
   account_status: string;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
@@ -58,7 +59,28 @@ export const adminApi = createApi({
         { type: "AdminUser" as const, id: "LIST" },
       ],
     }),
+    updateProfile: builder.mutation<{ success: boolean }, { id: string; firstName?: string; lastName?: string }>({
+      query: ({ id, ...body }) => ({ url: `/users/${id}`, method: "PATCH", body }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "AdminUser" as const, id },
+        { type: "AdminUser" as const, id: "LIST" },
+      ],
+    }),
+    uploadAvatar: builder.mutation<{ url: string }, { id: string; formData: FormData }>({
+      query: ({ id, formData }) => ({ url: `/users/${id}/avatar`, method: "POST", body: formData }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "AdminUser" as const, id },
+        { type: "AdminUser" as const, id: "LIST" },
+      ],
+    }),
   }),
 });
 
-export const { useListUsersQuery, useGetUserQuery, useChangeRoleMutation, useSetStatusMutation } = adminApi;
+export const {
+  useListUsersQuery,
+  useGetUserQuery,
+  useChangeRoleMutation,
+  useSetStatusMutation,
+  useUpdateProfileMutation,
+  useUploadAvatarMutation,
+} = adminApi;

@@ -9,8 +9,11 @@ import { loginAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function LoginForm() {
+  const { t } = useTranslation();
+  const login = t.auth.login;
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string>();
@@ -34,18 +37,18 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+        <Label htmlFor="email">{login.email}</Label>
+        <Input id="email" type="email" placeholder={login.emailPlaceholder} {...register("email")} />
         {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
       <div>
-        <Label htmlFor="password">Password</Label>
-        <Input id="password" type="password" placeholder="Your password" {...register("password")} />
+        <Label htmlFor="password">{login.password}</Label>
+        <Input id="password" type="password" placeholder={login.passwordPlaceholder} {...register("password")} />
         {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
       </div>
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
       <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Logging in..." : "Log in"}
+        {isPending ? login.submitting : login.submit}
       </Button>
     </form>
   );

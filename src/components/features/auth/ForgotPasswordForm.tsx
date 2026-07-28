@@ -8,8 +8,11 @@ import { forgotPasswordAction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function ForgotPasswordForm() {
+  const { t } = useTranslation();
+  const forgotPassword = t.auth.forgotPassword;
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string>();
   const [submitted, setSubmitted] = useState(false);
@@ -31,19 +34,19 @@ export function ForgotPasswordForm() {
   };
 
   if (submitted) {
-    return <p role="status">Check your email for a link to reset your password.</p>;
+    return <p role="status">{forgotPassword.checkEmail}</p>;
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+        <Label htmlFor="email">{forgotPassword.email}</Label>
+        <Input id="email" type="email" placeholder={forgotPassword.emailPlaceholder} {...register("email")} />
         {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
       <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Sending..." : "Send reset link"}
+        {isPending ? forgotPassword.submitting : forgotPassword.submit}
       </Button>
     </form>
   );

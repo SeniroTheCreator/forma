@@ -282,7 +282,7 @@ while building against the real Supabase/Next.js APIs:
 
 ## Migrations
 
-There are 5 migrations, applied in order by `pnpm supabase db reset`:
+There are 8 migrations, applied in order by `pnpm supabase db reset`:
 
 | # | File | Adds |
 |---|------|------|
@@ -293,6 +293,7 @@ There are 5 migrations, applied in order by `pnpm supabase db reset`:
 | 5 | `0005_fix_account_status_permission.sql` | Fixes `protect_account_status()` to check `users:suspend` instead of `users:write` |
 | 6 | `0006_avatars_bucket_limits.sql` | `file_size_limit` (5MB) + `allowed_mime_types` on the `avatars` bucket |
 | 7 | `0007_users_avatar_url_and_column_grants.sql` | Adds `users.avatar_url`; replaces `authenticated`'s blanket UPDATE on `users` with a column-scoped grant |
+| 8 | `0008_admin_avatar_upload.sql` | Widens the avatars bucket's owner-only INSERT policy, and adds an INSERT-only `files` policy, to also accept a caller with `users:write` — lets `adminService.uploadUserAvatar` upload on a target user's behalf through the caller's own RLS-scoped client |
 
 Full column/policy detail is in `docs/database.md`.
 

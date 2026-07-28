@@ -25,7 +25,21 @@ export async function signup(supabase: SupabaseClient, input: SignupInput): Prom
     options: { data: { first_name: input.firstName, last_name: input.lastName } },
   });
   if (error || !data.user) {
+    // With email confirmations disabled (local/dev config), signUp() rejects a duplicate
+    // email directly with this exact message instead of the fake-user response below.
+    // Normalized to the same wording so the UI is consistent across environments.
+    if (error?.message === "User already registered") {
+      throw new AuthError("An account with this email already exists.");
+    }
     throw new AuthError(error?.message ?? "Signup failed");
+  }
+  // Supabase returns a fake user with an empty `identities` array (instead of an error)
+  // when the email already belongs to a *confirmed* account, so that signUp() can't be used
+  // to mass-enumerate which emails are registered. An unconfirmed existing email instead
+  // returns a real user and quietly resends the confirmation email, which is desirable
+  // behavior we don't want to block here.
+  if (data.user.identities && data.user.identities.length === 0) {
+    throw new AuthError("An account with this email already exists.");
   }
   // When email confirmation is disabled (local/dev), signUp() auto-confirms the address
   // and returns an active session immediately. Sign back out so a brand-new account never

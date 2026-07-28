@@ -1,14 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useSelector } from "react-redux";
-import { selectLocale } from "@/store/slices/uiSlice";
-import { landingCopy } from "@/lib/i18n/landingCopy";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 import { LanguageToggle } from "@/components/features/marketing/LanguageToggle";
 
 export function Header() {
-  const locale = useSelector(selectLocale);
-  const t = landingCopy[locale];
+  const { t } = useTranslation();
 
   return (
     <header className="border-b border-border bg-background">

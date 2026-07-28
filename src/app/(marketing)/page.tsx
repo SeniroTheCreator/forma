@@ -1,23 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useSelector } from "react-redux";
-import { selectLocale } from "@/store/slices/uiSlice";
-import { landingCopy } from "@/lib/i18n/landingCopy";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export default function LandingPage() {
-  const locale = useSelector(selectLocale);
-  const t = landingCopy[locale];
+  const { t: dict } = useTranslation();
+  const t = dict.landing;
 
   return (
     <>
-      {/* activity strip */}
-      <div className="overflow-hidden border-b border-border px-4 py-2.5 text-xs text-muted-foreground sm:px-6 lg:px-8">
-        <span className="text-ok">●</span>
-        {"  "}
-        {t.activity.join("  ·  ")}
-      </div>
-
       {/* hero */}
       <section className="mx-auto flex max-w-6xl flex-col items-center gap-12 px-4 pt-16 pb-16 sm:px-6 sm:pt-20 sm:pb-20 lg:flex-row lg:items-center lg:px-8 lg:pt-24 lg:pb-24">
         <div className="max-w-xl text-center lg:text-left">

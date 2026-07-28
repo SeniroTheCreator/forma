@@ -1,6 +1,7 @@
 "use client";
 
 import { getPasswordStrength } from "@/lib/passwordStrength";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 const SEGMENT_COLOR = {
   1: "bg-red-500",
@@ -8,7 +9,10 @@ const SEGMENT_COLOR = {
   3: "bg-ok",
 } as const;
 
+const LABEL_KEY = { 1: "weak", 2: "good", 3: "strong" } as const;
+
 export function PasswordStrengthMeter({ password, show }: { password: string; show: boolean }) {
+  const { t } = useTranslation();
   const strength = getPasswordStrength(password);
   const expanded = show && strength !== null;
 
@@ -29,7 +33,11 @@ export function PasswordStrengthMeter({ password, show }: { password: string; sh
             />
           ))}
         </div>
-        {strength && <p className="mt-1.5 text-xs text-muted-foreground">{strength.label} password</p>}
+        {strength && (
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            {t.auth.passwordStrength[LABEL_KEY[strength.score]]} {t.auth.passwordStrength.suffix}
+          </p>
+        )}
       </div>
     </div>
   );

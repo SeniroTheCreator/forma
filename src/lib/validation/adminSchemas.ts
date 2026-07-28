@@ -29,10 +29,13 @@ export const updateUserSchema = z
   .object({
     role: z.string().min(1).optional(),
     status: z.enum(["active", "suspended"]).optional(),
+    firstName: z.string().min(1, "First name is required").optional(),
+    lastName: z.string().min(1, "Last name is required").optional(),
   })
-  .refine((body) => body.role !== undefined || body.status !== undefined, {
-    message: "Request must include a role or status change",
-  });
+  .refine(
+    (body) => body.role !== undefined || body.status !== undefined || body.firstName !== undefined || body.lastName !== undefined,
+    { message: "Request must include a role, status, or profile change" }
+  );
 
 export type ListUsersQuery = z.infer<typeof listUsersQuerySchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;

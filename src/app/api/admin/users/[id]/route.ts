@@ -40,6 +40,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (body.status) {
       await adminService.setAccountStatus(supabase, user.id, id, body.status);
     }
+    if (body.firstName !== undefined || body.lastName !== undefined) {
+      await adminService.updateUserProfile(supabase, user.id, id, {
+        firstName: body.firstName,
+        lastName: body.lastName,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

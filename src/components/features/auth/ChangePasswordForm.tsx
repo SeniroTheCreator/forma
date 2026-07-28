@@ -11,8 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordStrengthMeter } from "@/components/features/auth/PasswordStrengthMeter";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function ChangePasswordForm() {
+  const { t } = useTranslation();
+  const changePassword = t.auth.changePassword;
   const dispatch = useDispatch();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string>();
@@ -38,7 +41,7 @@ export function ChangePasswordForm() {
         dispatch(showToast({ message: result.error, variant: "error" }));
       } else {
         reset();
-        dispatch(showToast({ message: "Password changed successfully", variant: "success" }));
+        dispatch(showToast({ message: changePassword.successToast, variant: "success" }));
       }
     });
   };
@@ -46,18 +49,23 @@ export function ChangePasswordForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Label htmlFor="currentPassword">Current password</Label>
-        <Input id="currentPassword" type="password" placeholder="Your current password" {...register("currentPassword")} />
+        <Label htmlFor="currentPassword">{changePassword.currentPassword}</Label>
+        <Input
+          id="currentPassword"
+          type="password"
+          placeholder={changePassword.currentPasswordPlaceholder}
+          {...register("currentPassword")}
+        />
         {errors.currentPassword && (
           <p className="text-sm text-destructive">{errors.currentPassword.message}</p>
         )}
       </div>
       <div>
-        <Label htmlFor="newPassword">New password</Label>
+        <Label htmlFor="newPassword">{changePassword.newPassword}</Label>
         <Input
           id="newPassword"
           type="password"
-          placeholder="At least 8 characters"
+          placeholder={changePassword.passwordPlaceholder}
           {...register("newPassword", { onBlur: () => setPasswordFocused(false) })}
           onFocus={() => setPasswordFocused(true)}
         />
@@ -66,7 +74,7 @@ export function ChangePasswordForm() {
       </div>
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
       <Button type="submit" disabled={isPending}>
-        {isPending ? "Changing..." : "Change password"}
+        {isPending ? changePassword.submitting : changePassword.submit}
       </Button>
     </form>
   );

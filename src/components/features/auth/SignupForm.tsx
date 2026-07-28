@@ -9,11 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordStrengthMeter } from "@/components/features/auth/PasswordStrengthMeter";
+import { ResendVerificationButton } from "@/components/features/auth/ResendVerificationButton";
+import { useTranslation } from "@/lib/i18n/useTranslation";
 
 export function SignupForm() {
+  const { t } = useTranslation();
+  const signup = t.auth.signup;
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string>();
-  const [submitted, setSubmitted] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState<string>();
   const [passwordFocused, setPasswordFocused] = useState(false);
   const {
     register,
@@ -31,37 +35,42 @@ export function SignupForm() {
     startTransition(async () => {
       const result = await signupAction(formData);
       if (result.error) setServerError(result.error);
-      else setSubmitted(true);
+      else setSubmittedEmail(data.email);
     });
   };
 
-  if (submitted) {
-    return <p role="status">Check your email to verify your account.</p>;
+  if (submittedEmail) {
+    return (
+      <div className="space-y-4">
+        <p role="status">{signup.checkEmail}</p>
+        <ResendVerificationButton email={submittedEmail} />
+      </div>
+    );
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div>
-        <Label htmlFor="firstName">First name</Label>
-        <Input id="firstName" placeholder="e.g. John" {...register("firstName")} />
+        <Label htmlFor="firstName">{signup.firstName}</Label>
+        <Input id="firstName" placeholder={signup.firstNamePlaceholder} {...register("firstName")} />
         {errors.firstName && <p className="text-sm text-destructive">{errors.firstName.message}</p>}
       </div>
       <div>
-        <Label htmlFor="lastName">Last name</Label>
-        <Input id="lastName" placeholder="e.g. Smith" {...register("lastName")} />
+        <Label htmlFor="lastName">{signup.lastName}</Label>
+        <Input id="lastName" placeholder={signup.lastNamePlaceholder} {...register("lastName")} />
         {errors.lastName && <p className="text-sm text-destructive">{errors.lastName.message}</p>}
       </div>
       <div>
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" placeholder="you@example.com" {...register("email")} />
+        <Label htmlFor="email">{signup.email}</Label>
+        <Input id="email" type="email" placeholder={signup.emailPlaceholder} {...register("email")} />
         {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
       </div>
       <div>
-        <Label htmlFor="password">Password</Label>
+        <Label htmlFor="password">{signup.password}</Label>
         <Input
           id="password"
           type="password"
-          placeholder="At least 8 characters"
+          placeholder={signup.passwordPlaceholder}
           {...register("password", {
             onBlur: () => setPasswordFocused(false),
           })}
@@ -71,13 +80,18 @@ export function SignupForm() {
         {errors.password && <p className="mt-1.5 text-sm text-destructive">{errors.password.message}</p>}
       </div>
       <div>
-        <Label htmlFor="confirmPassword">Confirm password</Label>
-        <Input id="confirmPassword" type="password" placeholder="Type your password again" {...register("confirmPassword")} />
+        <Label htmlFor="confirmPassword">{signup.confirmPassword}</Label>
+        <Input
+          id="confirmPassword"
+          type="password"
+          placeholder={signup.confirmPasswordPlaceholder}
+          {...register("confirmPassword")}
+        />
         {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
       </div>
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
       <Button type="submit" disabled={isPending} className="w-full">
-        {isPending ? "Creating account..." : "Sign up"}
+        {isPending ? signup.submitting : signup.submit}
       </Button>
     </form>
   );
