@@ -18,6 +18,21 @@ import type {
 export const SUSPENDED_ACCOUNT_MESSAGE =
   "Your account has been suspended. Contact support if you believe this is a mistake.";
 
+/**
+ * Supabase's client library doesn't always surface a clean, safe-to-display string in
+ * `error.message` — a failure on the auth server's own side (verified live: its SMTP relay
+ * rejecting a send comes back as a 500 with `{"msg":"Error sending confirmation email",...}`,
+ * which supabase-js turned into an `error.message` of literally `"{}"`) can reach here as
+ * empty, or as a stray fragment of the response body rather than a sentence. Showing that
+ * verbatim leaks an internal detail without helping anyone, so every call site in this file
+ * that turns a Supabase error into an AuthError runs the message through this guard first —
+ * anything that isn't a normal non-empty sentence falls back to a plain, safe message.
+ */
+function safeMessage(message: string | undefined, fallback: string): string {
+  const trimmed = message?.trim();
+  return trimmed && !/^[{[]/.test(trimmed) ? trimmed : fallback;
+}
+
 export async function signup(supabase: SupabaseClient, input: SignupInput): Promise<{ userId: string }> {
   const { data, error } = await supabase.auth.signUp({
     email: input.email,
@@ -31,7 +46,7 @@ export async function signup(supabase: SupabaseClient, input: SignupInput): Prom
     if (error?.message === "User already registered") {
       throw new AuthError("An account with this email already exists.");
     }
-    throw new AuthError(error?.message ?? "Signup failed");
+    throw new AuthError(safeMessage(error?.message, "Something went wrong creating your account. Please try again."));
   }
   // Supabase returns a fake user with an empty `identities` array (instead of an error)
   // when the email already belongs to a *confirmed* account, so that signUp() can't be used
@@ -53,31 +68,31 @@ export async function signup(supabase: SupabaseClient, input: SignupInput): Prom
 export async function login(supabase: SupabaseClient, input: LoginInput): Promise<{ userId: string }> {
   const { data, error } = await supabase.auth.signInWithPassword({ email: input.email, password: input.password });
   if (error || !data.user) {
-    throw new AuthError(error?.message ?? "Invalid email or password");
+    throw new AuthError(safeMessage(error?.message, "Invalid email or password"));
   }
   return { userId: data.user.id };
 }
 
 export async function logout(supabase: SupabaseClient): Promise<void> {
   const { error } = await supabase.auth.signOut();
-  if (error) throw new AuthError(error.message);
+  if (error) throw new AuthError(safeMessage(error.message, "Failed to log out. Please try again."));
 }
 
 export async function resendVerificationEmail(supabase: SupabaseClient, email: string): Promise<void> {
   const { error } = await supabase.auth.resend({ type: "signup", email });
-  if (error) throw new AuthError(error.message);
+  if (error) throw new AuthError(safeMessage(error.message, "Failed to send the verification email. Please try again shortly."));
 }
 
 export async function forgotPassword(supabase: SupabaseClient, input: ForgotPasswordInput): Promise<void> {
   const { error } = await supabase.auth.resetPasswordForEmail(input.email, {
     redirectTo: `${env.NEXT_PUBLIC_SITE_URL}/reset-password`,
   });
-  if (error) throw new AuthError(error.message);
+  if (error) throw new AuthError(safeMessage(error.message, "Failed to send the password reset email. Please try again shortly."));
 }
 
 export async function resetPassword(supabase: SupabaseClient, input: ResetPasswordInput): Promise<void> {
   const { error } = await supabase.auth.updateUser({ password: input.password });
-  if (error) throw new AuthError(error.message);
+  if (error) throw new AuthError(safeMessage(error.message, "Failed to reset your password. Please try again."));
 }
 
 export async function changePassword(supabase: SupabaseClient, input: ChangePasswordInput): Promise<void> {
@@ -91,5 +106,5 @@ export async function changePassword(supabase: SupabaseClient, input: ChangePass
   if (reauthError) throw new AuthError("Current password is incorrect");
 
   const { error } = await supabase.auth.updateUser({ password: input.newPassword });
-  if (error) throw new AuthError(error.message);
+  if (error) throw new AuthError(safeMessage(error.message, "Failed to change your password. Please try again."));
 }
